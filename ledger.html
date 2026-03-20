@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E-POS Ledger Report</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&family=Roboto+Mono:wght@400;500;600;700;600&display=swap');
+:root{--navy:#0B1E3D;--navy2:#142952;--blue:#1B5FBF;--accent:#F59E0B;--green:#10B981;--red:#EF4444;--bg:#F0F4FA;--card:#fff;--border:#DDE5F0;--text:#0B1E3D;--muted:#7A90B0;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+.topbar{background:linear-gradient(135deg,var(--navy),var(--navy2));padding:16px 24px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 4px 20px rgba(11,30,61,.3);}
+.brand{display:flex;align-items:center;gap:12px;}
+.brand-icon{width:40px;height:40px;border-radius:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:var(--navy);}
+.brand-name{font-size:18px;font-weight:800;color:#fff;}
+.brand-sub{font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px;}
+.sync-badge{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.22);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;color:#fff;}
+.container{max-width:1100px;margin:0 auto;padding:24px 20px 60px;}
+.card{background:var(--card);border-radius:16px;box-shadow:0 4px 20px rgba(11,30,61,.08);padding:22px;margin-bottom:18px;border:1px solid var(--border);}
+.card-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;}
+label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px;}
+select,input[type=date]{padding:11px 14px;border-radius:10px;border:1.5px solid var(--border);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);background:#F8FAFD;outline:none;transition:border .2s;-webkit-appearance:none;appearance:none;width:100%;}
+select:focus,input:focus{border-color:var(--blue);background:#fff;}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237A90B0' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;padding-right:36px;}
+.filter-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:12px;align-items:flex-end;}
+.btn{padding:12px 22px;border-radius:10px;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .17s;white-space:nowrap;}
+.btn-primary{background:linear-gradient(135deg,var(--blue),#0D4AA0);color:#fff;}
+.btn-accent{background:linear-gradient(135deg,var(--accent),#FBBF24);color:var(--navy);}
+.btn-green{background:linear-gradient(135deg,var(--green),#059669);color:#fff;}
+.btn:active{transform:scale(.97);}
+.export-row{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
+.summary-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;}
+.tile{background:var(--card);border-radius:13px;padding:16px;text-align:center;border:1px solid var(--border);box-shadow:0 2px 8px rgba(11,30,61,.06);}
+.tile-val{font-size:18px;font-weight:700;font-family:'Roboto Mono',monospace;}
+.tile-lbl{font-size:10px;color:var(--muted);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+.t-blue .tile-val{color:var(--blue);}.t-green .tile-val{color:var(--green);}.t-red .tile-val{color:var(--red);}.t-orange .tile-val{color:#F97316;}
+/* LEDGER TABLE */
+.ledger-wrap{background:var(--card);border-radius:16px;border:1px solid var(--border);overflow:hidden;box-shadow:0 4px 20px rgba(11,30,61,.08);}
+.ledger-header{background:var(--navy);display:grid;grid-template-columns:1fr 4px 1fr;color:#fff;}
+.ledger-header-left,.ledger-header-right{padding:14px 18px;}
+.ledger-header-left{border-right:1px solid rgba(255,255,255,.15);}
+.ledger-col-titles{display:grid;grid-template-columns:110px 1fr 110px;gap:0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:rgba(255,255,255,.7);}
+.ledger-side-title{font-size:14px;font-weight:800;letter-spacing:.5px;margin-bottom:6px;}
+.ledger-divider{background:var(--navy);width:4px;}
+.ledger-body{display:grid;grid-template-columns:1fr 4px 1fr;}
+.ledger-side{overflow:hidden;}
+.ledger-side-divider{background:var(--border);width:4px;}
+.ledger-row{display:grid;grid-template-columns:110px 1fr 120px;border-bottom:1px solid var(--border);min-height:44px;}
+.ledger-row:last-child{border-bottom:none;}
+.ledger-row.total-row{background:#F8FAFD;font-weight:700;}
+.ledger-row.balance-row{background:var(--navy2);}
+.ledger-cell{padding:10px 12px;font-size:13px;display:flex;align-items:center;}
+.ledger-cell.date{font-family:'Roboto Mono',monospace;font-size:12px;color:var(--muted);white-space:nowrap;}
+.ledger-cell.desc{color:var(--text);line-height:1.4;}
+.ledger-cell.desc .batch{font-weight:700;font-family:'Roboto Mono',monospace;font-size:13px;color:var(--navy);}
+.ledger-cell.desc .tid{font-size:11px;color:var(--muted);margin-top:1px;}
+.ledger-cell.amount{font-family:'Roboto Mono',monospace;font-weight:700;font-size:14px;justify-content:flex-end;color:var(--text);}
+.ledger-cell.amount.debit{color:var(--blue);}
+.ledger-cell.amount.credit{color:var(--green);}
+.ledger-cell.amount.balance-pos{color:#6EE7B7;}
+.ledger-cell.amount.balance-neg{color:#FCA5A5;}
+.ledger-cell.amount.balance-zero{color:#fff;}
+.ledger-cell.total-label{font-weight:700;color:var(--navy);grid-column:1/3;}
+.ledger-cell.balance-label{color:#fff;font-weight:700;grid-column:1/3;font-size:13px;}
+.ledger-row.empty-row .ledger-cell{color:var(--muted);font-style:italic;justify-content:center;grid-column:1/4;}
+.ledger-footer{background:#F8FAFD;border-top:2px solid var(--navy);display:grid;grid-template-columns:1fr 4px 1fr;}
+.ledger-footer-side{padding:14px 18px;display:flex;justify-content:space-between;align-items:center;}
+.ledger-footer-divider{background:var(--border);}
+.footer-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;}
+.footer-val{font-size:18px;font-weight:800;font-family:'Roboto Mono',monospace;}
+.balance-card{background:var(--navy);border-radius:14px;padding:18px 22px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;}
+.balance-card .label{font-size:12px;color:rgba(255,255,255,.6);font-weight:600;text-transform:uppercase;margin-bottom:4px;}
+.balance-card .val{font-size:22px;font-weight:800;font-family:'Roboto Mono',monospace;}
+.balance-card .val.pos{color:#6EE7B7;}
+.balance-card .val.neg{color:#FCA5A5;}
+.balance-card .val.zero{color:#fff;}
+.loading{text-align:center;padding:60px;color:var(--muted);}
+.loading .ico{font-size:48px;margin-bottom:12px;}
+.empty{text-align:center;padding:48px;color:var(--muted);}
+.empty .ico{font-size:42px;margin-bottom:10px;}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;padding:12px 24px;border-radius:28px;font-size:13px;font-weight:600;opacity:0;transition:all .3s;z-index:999;white-space:nowrap;box-shadow:0 8px 24px rgba(11,30,61,.35);}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.ok{background:var(--green);}.toast.err{background:var(--red);}
+@media(max-width:700px){
+  .filter-grid{grid-template-columns:1fr 1fr;}
+  .summary-tiles{grid-template-columns:1fr 1fr;}
+  .ledger-row{grid-template-columns:85px 1fr 100px;}
+  .ledger-col-titles{grid-template-columns:85px 1fr 100px;}
+}
+@media print{
+  .topbar,.export-row,.filter-section{display:none!important;}
+  body{background:#fff;}
+  .container{padding:0;}
+  .ledger-wrap{box-shadow:none;border:1px solid #ccc;}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <a href="index.html" style="background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.22);border-radius:20px;padding:6px 13px;font-size:12px;font-weight:700;color:#fff;text-decoration:none;margin-right:8px;">← App</a>
+    <div class="brand-icon" id="tb-icon">PL</div>
+    <div>
+      <div class="brand-name" id="tb-name">E-POS Ledger</div>
+      <div class="brand-sub">Transaction Ledger Report</div>
+    </div>
+  </div>
+  <div class="sync-badge" id="sync-badge">⏳ Loading...</div>
+</div>
+
+<div class="container">
+
+  <!-- FILTERS -->
+  <div class="card filter-section">
+    <div class="card-title">📅 Ledger Filters</div>
+    <div class="filter-grid">
+      <div><label>Company</label><select id="sel-company" onchange="onCompanyChange()"><option>Loading...</option></select></div>
+      <div><label>From Date</label><input type="date" id="sel-from"></div>
+      <div><label>To Date</label><input type="date" id="sel-to"></div>
+      <div><label>TID Filter</label><select id="sel-tid"><option value="ALL">All TIDs</option></select></div>
+      <div><button class="btn btn-primary" onclick="generateLedger()">🔍 Generate</button></div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="loading" id="loading-state">
+    <div class="ico">⏳</div>
+    <p>Connecting to Google Sheets...</p>
+  </div>
+
+  <!-- LEDGER OUTPUT -->
+  <div id="ledger-output" style="display:none;">
+
+    <div class="export-row">
+      <button class="btn btn-accent" onclick="exportExcel()">⬇ Download Excel</button>
+      <button class="btn btn-green" onclick="exportPDF()">⬇ Download PDF</button>
+      <button class="btn" style="background:#F1F5F9;color:var(--navy);border:1.5px solid var(--border);" onclick="window.print()">🖨 Print</button>
+    </div>
+
+    <!-- SUMMARY TILES -->
+    <div class="summary-tiles">
+      <div class="tile t-blue"><div class="tile-val" id="s-batches">₹0</div><div class="tile-lbl">Total Batches (Dr)</div></div>
+      <div class="tile t-green"><div class="tile-val" id="s-received">₹0</div><div class="tile-lbl">Total Received (Cr)</div></div>
+      <div class="tile t-orange"><div class="tile-val" id="s-pending">₹0</div><div class="tile-lbl">Pending Amount</div></div>
+      <div class="tile"><div class="tile-val" id="s-entries" style="color:var(--navy);">0</div><div class="tile-lbl">Total Entries</div></div>
+    </div>
+
+    <!-- BALANCE BANNER -->
+    <div class="balance-card">
+      <div>
+        <div class="label">Closing Balance</div>
+        <div class="val" id="bal-val">₹0</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="label">Period</div>
+        <div style="font-size:14px;font-weight:700;color:#fff;" id="bal-period">—</div>
+      </div>
+    </div>
+
+    <!-- LEDGER TABLE -->
+    <div class="ledger-wrap" id="ledger-table"></div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxN_lQOoFAfWiz3N5GFMd_NJCt3-sCp5lbh7Xgfg7oJdCS5O_TMaTJA72B2bmCeZZ1oMQ/exec';
+
+let db = { companies:[], data:{} };
+let ledgerData = { transactions:[], received:[] };
+
+// ── UTILS ───────────────────────────────────────────────────────────────────
+function toast(msg,type='ok'){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast ${type} show`;setTimeout(()=>t.className='toast',2800);}
+function fmtAmt(n){return'₹'+Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtDate(d){
+  if(!d||d==='—')return'—';
+  const s=String(d);
+  if(s.includes('/')){return s;}
+  if(s.includes('-')){
+    const p=s.split('-');
+    if(p.length===3) return `${p[2]}/${p[1]}/${p[0]}`;
+  }
+  try{
+    const dt=new Date(d);
+    if(!isNaN(dt.getTime())){
+      return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}`;
+    }
+  }catch{}
+  return s;
+}
+function normalizeDate(d){
+  if(!d)return'';
+  const s=String(d);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+  try{
+    const dt=new Date(d);
+    if(!isNaN(dt.getTime())){
+      return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+    }
+  }catch{}
+  return s;
+}
+function todayStr(){return new Date().toISOString().split('T')[0];}
+function firstOfMonth(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;}
+
+// ── LOAD FROM SHEETS ────────────────────────────────────────────────────────
+async function loadData(){
+  try{
+    const r = await fetch(`${SHEET_URL}?action=getAll`);
+    const remote = await r.json();
+    if(remote.error) throw new Error(remote.error);
+
+    db.companies = remote.companies || [];
+    db.data = remote.data || {};
+
+    // Normalize dates
+    db.companies.forEach(c=>{
+      if(!db.data[c.id]) db.data[c.id]={tids:[],transactions:[],received:[]};
+      db.data[c.id].transactions=(db.data[c.id].transactions||[]).map(t=>({...t,date:normalizeDate(t.date),amount:Number(t.amount)}));
+      db.data[c.id].received=(db.data[c.id].received||[]).map(r=>({...r,date:normalizeDate(r.date),amount:Number(r.amount)}));
+    });
+
+    document.getElementById('sync-badge').textContent='✅ Live';
+    document.getElementById('loading-state').style.display='none';
+
+    populateCompanies();
+    onCompanyChange();
+
+  }catch(e){
+    document.getElementById('sync-badge').textContent='⚠️ Offline';
+    document.getElementById('sync-badge').style.color='#FCA5A5';
+    document.getElementById('loading-state').innerHTML='<div class="ico">⚠️</div><p>Could not connect to Google Sheets.<br>Check your internet and reload the page.</p>';
+    toast('Connection failed','err');
+  }
+}
+
+// ── POPULATE CONTROLS ────────────────────────────────────────────────────────
+function populateCompanies(){
+  const sel = document.getElementById('sel-company');
+  sel.innerHTML = db.companies.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  if(db.companies.length){
+    const c = db.companies[0];
+    document.getElementById('tb-icon').textContent = c.code||'PL';
+    document.getElementById('tb-icon').style.background = c.color||'var(--accent)';
+  }
+}
+
+function onCompanyChange(){
+  const id = document.getElementById('sel-company').value;
+  const co = db.companies.find(c=>c.id===id);
+  if(co){
+    document.getElementById('tb-icon').textContent=co.code||'PL';
+    document.getElementById('tb-icon').style.background=co.color||'var(--accent)';
+    document.getElementById('tb-name').textContent=(co.name||'E-POS')+' Ledger';
+  }
+  const tids = (db.data[id]||{}).tids||[];
+  const sel = document.getElementById('sel-tid');
+  sel.innerHTML='<option value="ALL">All TIDs</option>'+tids.map(t=>`<option value="${t}">${t}</option>`).join('');
+  // Auto set date range to current month
+  document.getElementById('sel-from').value = firstOfMonth();
+  document.getElementById('sel-to').value   = todayStr();
+}
+
+// ── GENERATE LEDGER ──────────────────────────────────────────────────────────
+function generateLedger(){
+  const coId   = document.getElementById('sel-company').value;
+  const from   = document.getElementById('sel-from').value;
+  const to     = document.getElementById('sel-to').value;
+  const tidFlt = document.getElementById('sel-tid').value;
+
+  if(!from||!to)return toast('Select date range','err');
+  if(from>to)return toast('From date must be before To date','err');
+
+  const coData = db.data[coId]||{transactions:[],received:[]};
+
+  let txns = coData.transactions.filter(t=>t.date>=from && t.date<=to);
+  if(tidFlt!=='ALL') txns=txns.filter(t=>t.tid===tidFlt);
+  txns.sort((a,b)=>a.date.localeCompare(b.date)||(parseInt(a.batch)-parseInt(b.batch)));
+
+  const recv = coData.received.filter(r=>r.date>=from && r.date<=to)
+    .sort((a,b)=>a.date.localeCompare(b.date));
+
+  ledgerData = {transactions:txns, received:recv, from, to};
+
+  // Summary
+  const totalDr = txns.reduce((s,t)=>s+t.amount,0);
+  const totalCr = recv.reduce((s,r)=>s+r.amount,0);
+  const balance = totalCr - totalDr;
+
+  document.getElementById('s-batches').textContent  = fmtAmt(totalDr);
+  document.getElementById('s-received').textContent = fmtAmt(totalCr);
+  document.getElementById('s-pending').textContent  = fmtAmt(Math.max(0,totalDr-totalCr));
+  document.getElementById('s-entries').textContent  = txns.length+recv.length;
+
+  const balEl = document.getElementById('bal-val');
+  balEl.textContent = fmtAmt(Math.abs(balance));
+  balEl.className = 'val '+(balance<0?'neg':balance>0?'pos':'zero');
+  balEl.textContent = fmtAmt(Math.abs(balance))+' '+(balance<0?'(Pending)':balance>0?'(Excess)':'(Balanced ✓)');
+  document.getElementById('bal-period').textContent = `${fmtDate(from)} — ${fmtDate(to)}`;
+
+  renderLedgerTable(txns, recv, totalDr, totalCr, balance);
+  document.getElementById('ledger-output').style.display='block';
+  document.getElementById('ledger-output').scrollIntoView({behavior:'smooth'});
+}
+
+// ── RENDER LEDGER TABLE ──────────────────────────────────────────────────────
+function renderLedgerTable(txns, recv, totalDr, totalCr, balance){
+  const rows = Math.max(txns.length, recv.length);
+
+  let leftRows='', rightRows='';
+
+  for(let i=0;i<rows;i++){
+    const t = txns[i];
+    const r = recv[i];
+
+    // LEFT side — batch transaction
+    if(t){
+      leftRows += `<div class="ledger-row">
+        <div class="ledger-cell date">${fmtDate(t.date)}</div>
+        <div class="ledger-cell desc"><div><div class="batch">Batch #${t.batch}</div><div class="tid">${t.tid}</div></div></div>
+        <div class="ledger-cell amount debit">${fmtAmt(t.amount)}</div>
+      </div>`;
+    } else {
+      leftRows += `<div class="ledger-row"><div class="ledger-cell" style="grid-column:1/4;"></div></div>`;
+    }
+
+    // RIGHT side — received credit
+    if(r){
+      rightRows += `<div class="ledger-row">
+        <div class="ledger-cell date">${fmtDate(r.date)}</div>
+        <div class="ledger-cell desc"><div><div class="batch">Credit Received</div><div class="tid">${r.note||'PineLab Credit'}</div></div></div>
+        <div class="ledger-cell amount credit">${fmtAmt(r.amount)}</div>
+      </div>`;
+    } else {
+      rightRows += `<div class="ledger-row"><div class="ledger-cell" style="grid-column:1/4;"></div></div>`;
+    }
+  }
+
+  // Empty state
+  if(!txns.length){
+    leftRows=`<div class="ledger-row empty-row"><div class="ledger-cell">No batch entries</div></div>`;
+  }
+  if(!recv.length){
+    rightRows=`<div class="ledger-row empty-row"><div class="ledger-cell">No received credits</div></div>`;
+  }
+
+  // Balance row — goes on whichever side is LOWER
+  const balLabel = balance<0?'Balance c/d (Pending)':balance>0?'Balance c/d (Excess)':'✓ Balanced';
+  const balClass = balance<0?'balance-neg':balance>0?'balance-pos':'balance-zero';
+  const balAmt   = fmtAmt(Math.abs(balance));
+
+  if(balance<0){
+    // Batches > Received → add balance to RIGHT side to make it equal
+    rightRows+=`<div class="ledger-row balance-row">
+      <div class="ledger-cell balance-label">${balLabel}</div>
+      <div class="ledger-cell amount ${balClass}">${balAmt}</div>
+    </div>`;
+  } else if(balance>0){
+    // Received > Batches → add balance to LEFT side
+    leftRows+=`<div class="ledger-row balance-row">
+      <div class="ledger-cell balance-label">${balLabel}</div>
+      <div class="ledger-cell amount ${balClass}">${balAmt}</div>
+    </div>`;
+  }
+
+  const grandTotal = fmtAmt(Math.max(totalDr, totalCr, totalDr+Math.max(0,balance), totalCr+Math.max(0,-balance)));
+
+  document.getElementById('ledger-table').innerHTML = `
+    <div class="ledger-header">
+      <div class="ledger-header-left">
+        <div class="ledger-side-title">Dr &nbsp;·&nbsp; BATCH TRANSACTIONS</div>
+        <div class="ledger-col-titles"><span>Date</span><span>Particulars</span><span style="text-align:right">Amount</span></div>
+      </div>
+      <div class="ledger-divider"></div>
+      <div class="ledger-header-right">
+        <div class="ledger-side-title">Cr &nbsp;·&nbsp; RECEIVED CREDITS</div>
+        <div class="ledger-col-titles"><span>Date</span><span>Particulars</span><span style="text-align:right">Amount</span></div>
+      </div>
+    </div>
+    <div class="ledger-body">
+      <div class="ledger-side">${leftRows}</div>
+      <div class="ledger-side-divider"></div>
+      <div class="ledger-side">${rightRows}</div>
+    </div>
+    <div class="ledger-footer">
+      <div class="ledger-footer-side">
+        <div><div class="footer-label">Total Debit</div><div class="footer-val" style="color:var(--blue);">${fmtAmt(totalDr)}</div></div>
+        <div style="text-align:right"><div class="footer-label">Batches</div><div style="font-size:14px;font-weight:700;color:var(--muted);">${txns.length} entries</div></div>
+      </div>
+      <div class="ledger-footer-divider"></div>
+      <div class="ledger-footer-side">
+        <div><div class="footer-label">Total Credit</div><div class="footer-val" style="color:var(--green);">${fmtAmt(totalCr)}</div></div>
+        <div style="text-align:right"><div class="footer-label">Credits</div><div style="font-size:14px;font-weight:700;color:var(--muted);">${recv.length} entries</div></div>
+      </div>
+    </div>`;
+}
+
+// ── EXPORT EXCEL ─────────────────────────────────────────────────────────────
+function exportExcel(){
+  const {transactions:txns,received:recv,from,to}=ledgerData;
+  if(!txns.length&&!recv.length)return toast('Generate ledger first','err');
+
+  const rows=Math.max(txns.length,recv.length);
+  const data=[['DATE (Dr)','BATCH #','TID','AMOUNT (Dr)','','DATE (Cr)','PARTICULARS','NOTE','AMOUNT (Cr)']];
+
+  for(let i=0;i<rows;i++){
+    const t=txns[i],r=recv[i];
+    data.push([
+      t?fmtDate(t.date):'',
+      t?'#'+t.batch:'',
+      t?t.tid:'',
+      t?t.amount:'',
+      '',
+      r?fmtDate(r.date):'',
+      r?'Credit Received':'',
+      r?r.note||'':'',
+      r?r.amount:''
+    ]);
+  }
+
+  const totalDr=txns.reduce((s,t)=>s+t.amount,0);
+  const totalCr=recv.reduce((s,r)=>s+r.amount,0);
+  const bal=totalCr-totalDr;
+  data.push([]);
+  data.push(['TOTAL','','',totalDr,'','TOTAL','','',totalCr]);
+  data.push(['BALANCE','','','',' ','',bal<0?'Pending':bal>0?'Excess':'Balanced','',Math.abs(bal)]);
+
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[12,10,16,14,3,12,16,16,14].map(w=>({wch:w}));
+
+  // Style header row
+  const coName = db.companies.find(c=>c.id===document.getElementById('sel-company').value)?.name||'Company';
+  XLSX.utils.book_append_sheet(wb,ws,`Ledger`);
+  XLSX.writeFile(wb,`${coName}_Ledger_${from}_to_${to}.xlsx`);
+  toast('Excel downloaded!');
+}
+
+// ── EXPORT PDF ────────────────────────────────────────────────────────────────
+function exportPDF(){
+  const {transactions:txns,received:recv,from,to}=ledgerData;
+  if(!txns.length&&!recv.length)return toast('Generate ledger first','err');
+
+  const totalDr=txns.reduce((s,t)=>s+t.amount,0);
+  const totalCr=recv.reduce((s,r)=>s+r.amount,0);
+  const bal=totalCr-totalDr;
+  const rows=Math.max(txns.length,recv.length);
+  const coName=db.companies.find(c=>c.id===document.getElementById('sel-company').value)?.name||'Company';
+
+  let tableRows='';
+  for(let i=0;i<rows;i++){
+    const t=txns[i],r=recv[i];
+    tableRows+=`<tr>
+      <td>${t?fmtDate(t.date):''}</td>
+      <td style="font-weight:700;">${t?'Batch #'+t.batch:''}</td>
+      <td style="font-size:11px;color:#7A90B0;">${t?t.tid:''}</td>
+      <td style="font-family:monospace;font-weight:700;color:#1B5FBF;text-align:right;">${t?'₹'+t.amount.toLocaleString('en-IN',{minimumFractionDigits:2}):''}</td>
+      <td style="background:#E5E7EB;width:6px;padding:0;"></td>
+      <td>${r?fmtDate(r.date):''}</td>
+      <td style="font-weight:700;">${r?'Credit Received':''}</td>
+      <td style="font-size:11px;color:#7A90B0;">${r?r.note||'':''}</td>
+      <td style="font-family:monospace;font-weight:700;color:#10B981;text-align:right;">${r?'₹'+r.amount.toLocaleString('en-IN',{minimumFractionDigits:2}):''}</td>
+    </tr>`;
+  }
+
+  const balColor=bal<0?'#EF4444':bal>0?'#10B981':'#374151';
+  const balLabel=bal<0?'Balance Pending':bal>0?'Excess Credit':'✓ Balanced';
+
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>${coName} Ledger</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:12px;padding:28px;color:#0B1E3D;}
+    h1{font-size:22px;font-weight:800;margin-bottom:4px;}
+    .meta{color:#7A90B0;font-size:11px;margin-bottom:18px;}
+    .summary{display:flex;gap:12px;margin-bottom:20px;}
+    .sbox{background:#F8FAFD;border:1px solid #DDE5F0;border-radius:8px;padding:12px 16px;flex:1;text-align:center;}
+    .sval{font-size:16px;font-weight:800;font-family:monospace;}
+    .slbl{font-size:10px;color:#7A90B0;text-transform:uppercase;margin-top:3px;}
+    .bal-box{background:#0B1E3D;border-radius:10px;padding:14px 20px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;}
+    .bal-box .bl{font-size:11px;color:rgba(255,255,255,.6);text-transform:uppercase;}
+    .bal-box .bv{font-size:20px;font-weight:800;font-family:monospace;color:${balColor};}
+    table{width:100%;border-collapse:collapse;}
+    th{padding:9px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.4px;}
+    th.dr{background:#1B5FBF;color:#fff;}th.cr{background:#059669;color:#fff;}th.div{background:#E5E7EB;width:6px;padding:0;}
+    td{padding:8px 10px;border-bottom:1px solid #DDE5F0;font-size:12px;}
+    tr:nth-child(even) td{background:#F8FAFD;}
+    .tfoot td{background:#142952!important;color:#fff!important;font-weight:700;}
+    .btn{background:#0B1E3D;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;margin-top:20px;}
+    @media print{.btn{display:none;}}
+  </style></head><body>
+  <h1>📒 ${coName.toUpperCase()} — TRANSACTION LEDGER</h1>
+  <div class="meta">Period: ${fmtDate(from)} to ${fmtDate(to)} &nbsp;·&nbsp; Generated: ${new Date().toLocaleString('en-IN')}</div>
+  <div class="summary">
+    <div class="sbox"><div class="sval" style="color:#1B5FBF;">₹${totalDr.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Total Batches (Dr)</div></div>
+    <div class="sbox"><div class="sval" style="color:#10B981;">₹${totalCr.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Total Received (Cr)</div></div>
+    <div class="sbox"><div class="sval" style="color:${balColor};">₹${Math.abs(bal).toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">${balLabel}</div></div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th class="dr" colspan="4">Dr — BATCH TRANSACTIONS</th>
+        <th class="div"></th>
+        <th class="cr" colspan="4">Cr — RECEIVED CREDITS</th>
+      </tr>
+      <tr>
+        <th class="dr">Date</th><th class="dr">Batch #</th><th class="dr">TID</th><th class="dr" style="text-align:right;">Amount</th>
+        <th class="div"></th>
+        <th class="cr">Date</th><th class="cr">Particulars</th><th class="cr">Note</th><th class="cr" style="text-align:right;">Amount</th>
+      </tr>
+    </thead>
+    <tbody>${tableRows}</tbody>
+    <tfoot>
+      <tr class="tfoot">
+        <td colspan="3">TOTAL (${txns.length} batches)</td>
+        <td style="font-family:monospace;text-align:right;">₹${totalDr.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td></td>
+        <td colspan="3">TOTAL (${recv.length} credits)</td>
+        <td style="font-family:monospace;text-align:right;">₹${totalCr.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+      </tr>
+      <tr class="tfoot">
+        <td colspan="3" style="color:${balColor};">${balLabel}</td>
+        <td style="font-family:monospace;text-align:right;color:${balColor};">₹${Math.abs(bal).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td></td><td colspan="4"></td>
+      </tr>
+    </tfoot>
+  </table>
+  <button class="btn" onclick="window.print()">🖨 Print / Save as PDF</button>
+  </body></html>`);
+  w.document.close();
+  toast('PDF opened!');
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+loadData();
+</script>
+</body>
+</html>
