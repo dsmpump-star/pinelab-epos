@@ -434,6 +434,9 @@ async function loadFromSheet(){
 
     // ✅ Load overrides from Sheets — shared across ALL devices
     db.overrides = remote.overrides || {};
+    // Clear any stale override data that may be cached in localStorage
+    localStorage.removeItem('pinelab_overrides_co_pinelab');
+    localStorage.removeItem('pinelab_overrides_');
 
     setSyncStatus('ok');
     updateTopbar(); renderTIDs(); autoFillBatch(); refreshDSM();
@@ -441,7 +444,13 @@ async function loadFromSheet(){
     setSyncStatus('err');
     toast('Could not connect to Google Sheets — working offline','err');
     const local = localStorage.getItem('epos_v5');
-    if(local){ try{ Object.assign(db, JSON.parse(local)); }catch{} }
+    if(local){
+      try{
+        const parsed = JSON.parse(local);
+        delete parsed.overrides; // ✅ never restore overrides from cache — always from Sheets
+        Object.assign(db, parsed);
+      }catch{}
+    }
     if(!db.companies.length){
       const id='co_pinelab';
       db.companies=[{id,name:'PineLab',code:'PL',color:'#1B5FBF',createdAt:new Date().toISOString()}];
@@ -461,10 +470,12 @@ async function createDefaultCompany(){
   db.activeCompanyId=id;
 }
 
-// save = just persist active company choice locally (all real data is in Sheets)
+// save = persist active company + data locally for offline backup
+// ✅ overrides are NEVER cached locally — always loaded fresh from Sheets
 function save(){
   localStorage.setItem(LOCAL_KEY, db.activeCompanyId||'');
-  localStorage.setItem('epos_v5', JSON.stringify(db)); // offline backup
+  const toCache = { activeCompanyId:db.activeCompanyId, companies:db.companies, data:db.data };
+  localStorage.setItem('epos_v5', JSON.stringify(toCache));
 }
 
 // Active company data shorthand
