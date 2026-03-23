@@ -108,6 +108,30 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .modal-overlay.open{display:flex;}
 .modal-box{background:#fff;border-radius:22px 22px 0 0;padding:22px 18px 36px;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;}
 .modal-handle{width:38px;height:4px;background:var(--border);border-radius:4px;margin:0 auto 18px;}
+/* LEDGER */
+.ledger-wrap{background:var(--card);border-radius:15px;border:1px solid var(--border);overflow:hidden;margin-bottom:14px;}
+.ledger-hdr{background:var(--navy);color:#fff;}
+.ledger-hdr-row{display:grid;grid-template-columns:85px 70px 1fr 95px 95px 95px;padding:10px 12px;gap:6px;}
+.ledger-hdr-row span{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:rgba(255,255,255,.7);}
+.ledger-row{display:grid;grid-template-columns:85px 70px 1fr 95px 95px 95px;padding:9px 12px;border-bottom:1px solid var(--border);font-size:12px;gap:6px;align-items:center;}
+.ledger-row:last-child{border-bottom:none;}
+.ledger-row:nth-child(even){background:#F8FAFD;}
+.ledger-row.opening{background:#EFF6FF!important;font-weight:700;}
+.ledger-row.subtotal{background:#F0F4FA!important;font-weight:700;}
+.ledger-row.total-row{background:var(--navy2)!important;color:#fff!important;font-weight:700;}
+.ledger-row.closing{background:var(--navy)!important;color:#fff!important;font-weight:800;}
+.lr-date{font-size:11px;color:var(--muted);white-space:nowrap;}
+.lr-batch{font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;color:var(--navy);}
+.lr-debit{font-family:'Roboto Mono',monospace;font-weight:700;color:var(--red);text-align:right;}
+.lr-credit{font-family:'Roboto Mono',monospace;font-weight:700;color:var(--green);text-align:right;}
+.lr-balance{font-family:'Roboto Mono',monospace;font-weight:700;text-align:right;}
+.ob-strip{background:linear-gradient(135deg,var(--navy),var(--navy2));border-radius:13px;padding:15px 16px;margin-bottom:13px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.ob-strip h3{font-size:13px;font-weight:800;color:#fff;margin-bottom:3px;}
+.ob-strip p{font-size:11px;color:rgba(255,255,255,.55);}
+.ob-strip input{width:130px;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.25);border-radius:10px;padding:9px 12px;font-size:15px;font-weight:700;color:#fff;font-family:'Roboto Mono',monospace;outline:none;text-align:right;}
+.ob-strip input:focus{background:rgba(255,255,255,.2);border-color:var(--accent);}
+/* STATUS OVERRIDE on batch rows */
+.status-sel{font-size:11px;padding:4px 8px;border-radius:7px;border:1.5px solid var(--border);background:#F8FAFD;font-weight:700;cursor:pointer;-webkit-appearance:none;appearance:none;}
 /* Company cards */
 .co-card{background:var(--card);border-radius:14px;padding:15px 16px;margin-bottom:10px;border:2px solid var(--border);display:flex;justify-content:space-between;align-items:center;transition:border .2s;}
 .co-card.active-co{border-color:var(--blue);background:#F0F7FF;}
@@ -137,7 +161,6 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
       <div style="display:flex;gap:6px;">
         <button class="co-switch-btn" onclick="switchTab('companies')">🏢 <span id="topbar-co">Companies</span></button>
-        <a href="ledger.html" style="background:rgba(16,185,129,.25);border:1px solid rgba(16,185,129,.4);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:700;color:#6EE7B7;text-decoration:none;display:flex;align-items:center;gap:4px;">📒 Ledger</a>
       </div>
       <span id="sync-status" style="font-size:10px;color:rgba(255,255,255,.6);">⏳ Loading...</span>
     </div>
@@ -146,6 +169,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div class="tab active" onclick="switchTab('dsm')">📥 DSM Entry</div>
     <div class="tab" onclick="switchTab('recv')">💰 Received</div>
     <div class="tab" onclick="switchTab('report')">📊 Report</div>
+    <div class="tab" onclick="switchTab('ledger')">📒 Ledger</div>
   </div>
 </div>
 
@@ -276,6 +300,59 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
 </div>
 
+<!-- ═══ LEDGER ═══ -->
+<div class="page" id="page-ledger">
+  <!-- Opening Balance Strip -->
+  <div class="ob-strip">
+    <div>
+      <h3>Opening Balance</h3>
+      <p>Carries forward into all ledger calculations</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+      <span style="color:rgba(255,255,255,.6);font-size:16px;font-weight:700;">₹</span>
+      <input type="number" id="ob-input" placeholder="0.00" step="0.01" min="0" onkeydown="if(event.key==='Enter')saveLedgerOB()">
+      <button class="btn btn-accent btn-sm" onclick="saveLedgerOB()" style="padding:9px 14px;font-size:12px;">✓ Save</button>
+    </div>
+  </div>
+  <!-- Filters -->
+  <div class="card">
+    <div class="card-title">📅 Ledger Filters</div>
+    <div class="form-row"><label>From Date</label><input type="date" id="ldg-from"></div>
+    <div class="form-row"><label>To Date</label><input type="date" id="ldg-to"></div>
+    <div class="form-row"><label>Filter by TID</label><select id="ldg-tid"><option value="ALL">All TIDs</option></select></div>
+    <button class="btn btn-primary" onclick="generateLedger()" style="margin-top:4px;">📒 Generate Ledger</button>
+  </div>
+  <!-- Output -->
+  <div id="ldg-output" style="display:none;">
+    <div class="tiles">
+      <div class="tile t-blue"><div class="tile-val" id="ls-ob">₹0</div><div class="tile-lbl">Opening Bal</div></div>
+      <div class="tile t-red"><div class="tile-val" id="ls-dr">₹0</div><div class="tile-lbl">Total Debit</div></div>
+      <div class="tile t-green"><div class="tile-val" id="ls-cr">₹0</div><div class="tile-lbl">Total Credit</div></div>
+      <div class="tile t-orange"><div class="tile-val" id="ls-pending">₹0</div><div class="tile-lbl">Pending</div></div>
+    </div>
+    <div style="background:var(--card);border-radius:13px;padding:14px;text-align:center;border:1px solid var(--border);box-shadow:0 2px 8px rgba(11,30,61,.06);margin-bottom:13px;">
+      <div class="tile-val" id="ls-cb" style="font-size:18px;">₹0</div>
+      <div class="tile-lbl" style="margin-top:4px;">Closing Balance</div>
+    </div>
+    <div class="export-row">
+      <button class="btn btn-accent" onclick="exportLedgerExcel()">⬇ Excel</button>
+      <button class="btn btn-primary" onclick="exportLedgerPDF()">⬇ PDF</button>
+    </div>
+    <div style="overflow-x:auto;border-radius:13px;border:1px solid var(--border);">
+      <div class="ledger-hdr">
+        <div class="ledger-hdr-row">
+          <span>Date</span><span>Batch #</span><span>TID / Particulars</span>
+          <span style="text-align:right">Debit</span>
+          <span style="text-align:right">Credit</span>
+          <span style="text-align:right">Balance</span>
+        </div>
+      </div>
+      <div id="ldg-rows"></div>
+    </div>
+  </div>
+</div>
+
+
 <div class="toast" id="toast"></div>
 <div class="modal-overlay" id="modal" onclick="maybeCloseModal(event)">
   <div class="modal-box"><div class="modal-handle"></div><div id="modal-body"></div></div>
@@ -291,7 +368,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 // }
 // ─────────────────────────────────────────────────────────────────────────────
 const RESET_PIN='1234'; // ← Change to your PIN
-const SHEET_URL='https://script.google.com/macros/s/AKfycbwcXA1Mj6MrtQu6Zh4RigMQ0tLHpIZZadXq2SlGin_bFHN-GeqbREBD2krZG3s1YyreyA/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbxN_lQOoFAfWiz3N5GFMd_NJCt3-sCp5lbh7Xgfg7oJdCS5O_TMaTJA72B2bmCeZZ1oMQ/exec';
 const LOCAL_KEY='epos_active_co'; // only stores which company is active
 
 let db = { activeCompanyId:null, companies:[], data:{} };
@@ -308,26 +385,13 @@ function setSyncStatus(s){
 }
 
 async function apiGet(action){
-  return new Promise((resolve,reject)=>{
-    const s=document.createElement('script');
-    const cb='_cb'+Date.now();
-    window[cb]=(data)=>{resolve(data);delete window[cb];s.remove();};
-    s.onerror=()=>{reject(new Error('failed'));s.remove();};
-    s.src=`${SHEET_URL}?action=${action}&callback=${cb}`;
-    document.head.appendChild(s);
-    setTimeout(()=>{if(window[cb]){delete window[cb];s.remove();reject(new Error('timeout'));}},10000);
-  });
+  const r=await fetch(`${SHEET_URL}?action=${action}`);
+  return r.json();
 }
+
 async function apiPost(payload){
-  return new Promise((resolve)=>{
-    const s=document.createElement('script');
-    const cb='_cb'+Date.now();
-    window[cb]=(data)=>{resolve(data);delete window[cb];s.remove();};
-    s.onerror=()=>{resolve({success:true});s.remove();};
-    s.src=`${SHEET_URL}?payload=${encodeURIComponent(JSON.stringify(payload))}&callback=${cb}`;
-    document.head.appendChild(s);
-    setTimeout(()=>{if(window[cb]){delete window[cb];s.remove();resolve({success:true});}},10000);
-  });
+  const r=await fetch(SHEET_URL,{method:'POST',body:JSON.stringify(payload)});
+  return r.json();
 }
 
 // ── LOAD ALL DATA FROM GOOGLE SHEETS ────────────────────────────────────────
@@ -424,14 +488,6 @@ function normalizeDate(d){
   return s;
 }
 
-function fmtTime(ts){
-  if(!ts)return'';
-  try{
-    const d=new Date(ts);
-    if(isNaN(d.getTime()))return'';
-    return d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
-  }catch{return'';}
-}
 function fmtDate(d){
   if(!d||d==='—'||d==='undefined')return'—';
   // Handle Date objects or full ISO strings from Google Sheets
@@ -458,50 +514,6 @@ function fmtAmt(n){if(n===null||n===undefined||n==='')return'—';return'₹'+Nu
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function toast(msg,type='ok'){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast ${type} show`;setTimeout(()=>t.className='toast',2800);}
 
-// ── MATCH ENGINE ───────────────────────────────────────────────────────────
-// Sort smallest-amount first so the maximum number of batches get settled.
-// Remaining pool then naturally leaves only the large unpaid batch as pending.
-function computeMatch(){
-  const totalReceived = co().received.reduce((s,r) => s + (r.amount||0), 0);
-  const totalBatches  = co().transactions.reduce((s,b) => s + b.amount, 0);
-  const TOLERANCE = 1.00;
-
-  // Sort by date then batch number — PineLab pays oldest batch first.
-  // This matches the actual payment order so status is always accurate.
-  const byDate = [...co().transactions].sort((a,b) =>
-    a.date.localeCompare(b.date) || (parseInt(a.batch) - parseInt(b.batch))
-  );
-
-  let rem = totalReceived;
-  const smap = {};
-  for(const b of byDate){
-    if(rem <= 0){
-      smap[b.id] = {status:'pending', receivedAmt:0, balance:-b.amount};
-    } else if(rem >= b.amount - TOLERANCE){
-      const got = Math.min(rem, b.amount);
-      rem = Math.max(0, rem - b.amount);
-      smap[b.id] = {status:'settled', receivedAmt:got, balance:0};
-    } else {
-      smap[b.id] = {status:'partial', receivedAmt:rem, balance:rem - b.amount};
-      rem = 0;
-    }
-  }
-
-  // Display: sorted by date then batch number
-  const result = [...co().transactions]
-    .sort((a,b) => a.date.localeCompare(b.date) || (parseInt(a.batch) - parseInt(b.batch)))
-    .map(b => ({...b, ...smap[b.id]}));
-
-  return {
-    batches: result,
-    totalBatches, totalReceived,
-    totalPending:  Math.max(0, totalBatches - totalReceived),
-    excess:        Math.max(0, totalReceived - totalBatches),
-    pendingCount:  result.filter(b => b.status !== 'settled').length,
-    settledCount:  result.filter(b => b.status === 'settled').length
-  };
-}
-
 // ── TOPBAR ─────────────────────────────────────────────────────────────────
 function updateTopbar(){
   const c=coInfo();
@@ -518,13 +530,13 @@ let curTab='dsm';
 function switchTab(tab){
   curTab=tab;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  const tabNames=['dsm','recv','report','companies'];
-  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['dsm','recv','report'][i]===tab));
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['dsm','recv','report','ledger'][i]===tab));
   document.getElementById('page-'+(tab==='companies'?'companies':tab)).classList.add('active');
   if(tab==='companies'){renderCompanies();return;}
   if(!db.activeCompanyId){switchTab('companies');return;}
   if(tab==='recv')refreshRecv();
   if(tab==='report'){populateRepTid();refreshReport();}
+  if(tab==='ledger'){initLedgerTab();}
 }
 
 // ── COMPANY MANAGEMENT ─────────────────────────────────────────────────────
@@ -735,7 +747,7 @@ function refreshDSM(){
 function eHTML(t,showDel){
   return`<div class="entry-item">
     <div class="entry-top">
-      <div><div class="e-tid">${t.tid}</div><div class="e-meta">📅 ${fmtDate(t.date)}${t.createdAt?' · ⏱ '+fmtTime(t.createdAt):''}</div></div>
+      <div><div class="e-tid">${t.tid}</div><div class="e-meta">📅 ${fmtDate(t.date)}</div></div>
       <div><div class="e-amt">${fmtAmt(t.amount)}</div><div class="e-batch">Batch #${t.batch}</div></div>
     </div>
     <div class="entry-actions">
@@ -812,7 +824,7 @@ function refreshRecv(){
     ?'<div class="empty"><div class="ico">💳</div><p>No received entries yet</p></div>'
     :sorted.map(r=>`<div class="recv-entry">
         <div class="recv-header"><div class="recv-label">${fmtAmt(r.amount)}</div><span class="badge bb">Received</span></div>
-        <div class="recv-sub">📅 ${fmtDate(r.date)}${r.note?' · '+r.note:''}${r.savedAt?' · ⏱ '+fmtTime(r.savedAt):''}</div>
+        <div class="recv-sub">📅 ${fmtDate(r.date)}${r.note?' · '+r.note:''}</div>
         <div class="recv-actions">
           <button class="btn btn-sm btn-edit" onclick="editRecv('${r.id}')">✏️ Edit</button>
           <button class="btn btn-sm btn-del" onclick="delRecv('${r.id}')">✕ Delete</button>
@@ -851,6 +863,12 @@ function refreshRecv(){
         <div class="br-amt">${fmtAmt(b.amount)}</div>
         <div class="br-status" style="color:${b.status==='partial'?'var(--red)':'var(--orange)'};">${b.status==='partial'?'⚠️ Partial':'❌ Not received'}</div>
         ${b.status==='partial'?`<div style="font-size:11px;color:var(--red);margin-top:2px;">Short ${fmtAmt(Math.abs(b.balance))}</div>`:''}
+        <select class="status-sel" onchange="setOverride('${b.id}',this.value)" style="margin-top:6px;">
+          <option value="auto"${!getOverrides()[b.id]?' selected':''}>🔄 Auto</option>
+          <option value="settled"${getOverrides()[b.id]==='settled'?' selected':''}>✅ Settled</option>
+          <option value="partial"${getOverrides()[b.id]==='partial'?' selected':''}>⚠️ Partial</option>
+          <option value="pending"${getOverrides()[b.id]==='pending'?' selected':''}>❌ Pending</option>
+        </select>
       </div>
     </div>`).join('');
   }
@@ -865,6 +883,12 @@ function refreshRecv(){
       <div class="br-right">
         <div class="br-amt">${fmtAmt(b.amount)}</div>
         <div class="br-status" style="color:var(--green);">✅ Settled</div>
+        <select class="status-sel" onchange="setOverride('${b.id}',this.value)" style="margin-top:6px;">
+          <option value="auto"${!getOverrides()[b.id]?' selected':''}>🔄 Auto</option>
+          <option value="settled"${getOverrides()[b.id]==='settled'?' selected':''}>✅ Settled</option>
+          <option value="partial"${getOverrides()[b.id]==='partial'?' selected':''}>⚠️ Partial</option>
+          <option value="pending"${getOverrides()[b.id]==='pending'?' selected':''}>❌ Pending</option>
+        </select>
       </div>
     </div>`).join('');
   }
@@ -923,7 +947,22 @@ function refreshReport(){
     rows.forEach(r=>{
       const sc=r.status==='settled'?'bg':r.status==='partial'?'bo':'br';
       const sl=r.status==='settled'?'🟢 Settled':r.status==='partial'?'🟡 Partial':'🔴 Pending';
-      h+=`<tr><td style="white-space:nowrap;">${fmtDate(r.date)}</td><td style="font-family:'Roboto Mono',monospace;font-size:11px;">${r.tid}</td><td style="font-family:'Roboto Mono',monospace;font-weight:700;">#${r.batch}</td><td style="font-family:'Roboto Mono',monospace;">${fmtAmt(r.amount)}</td><td><span class="badge ${sc}" style="font-size:10px;">${sl}</span></td></tr>`;
+      const ov=getOverrides();
+      h+=`<tr>
+        <td style="white-space:nowrap;">${fmtDate(r.date)}</td>
+        <td style="font-family:'Roboto Mono',monospace;font-size:11px;">${r.tid}</td>
+        <td style="font-family:'Roboto Mono',monospace;font-weight:700;">#${r.batch}</td>
+        <td style="font-family:'Roboto Mono',monospace;">${fmtAmt(r.amount)}</td>
+        <td>
+          <span class="badge ${sc}" style="font-size:10px;">${sl}</span>
+          <select class="status-sel" onchange="setOverride('${r.id}',this.value)" style="margin-left:4px;font-size:10px;padding:2px 4px;">
+            <option value="auto"${!ov[r.id]?' selected':''}>Auto</option>
+            <option value="settled"${ov[r.id]==='settled'?' selected':''}>✅</option>
+            <option value="partial"${ov[r.id]==='partial'?' selected':''}>⚠️</option>
+            <option value="pending"${ov[r.id]==='pending'?' selected':''}>❌</option>
+          </select>
+        </td>
+      </tr>`;
     });
     h+=`</tbody><tfoot><tr><td colspan="3">TOTAL (${rows.length} batches)</td><td style="font-family:'Roboto Mono',monospace;">${fmtAmt(totalTxn)}</td><td></td></tr></tfoot></table>`;
     bw.innerHTML=h;
@@ -986,6 +1025,7 @@ function exportPDF(){
   const tt=txns.reduce((s,t)=>s+t.amount,0);
   const tr2=co().received.reduce((s,r)=>s+r.amount,0);
   const fb=tr2-m.totalBatches;
+  const pendingAmt=m.totalPending;
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><title>${cname} EPOS Report</title>
   <style>body{font-family:Arial,sans-serif;font-size:12px;padding:24px;color:#0B1E3D;}h1{font-size:20px;margin-bottom:3px;}
@@ -1005,7 +1045,7 @@ function exportPDF(){
   <div class="summary">
     <div class="sbox"><div class="sval" style="color:#1B5FBF;">₹${tt.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Total Batches</div></div>
     <div class="sbox"><div class="sval" style="color:#10B981;">₹${tr2.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Total Received</div></div>
-    <div class="sbox"><div class="sval" style="color:${fb<0?'#EF4444':fb>0?'#10B981':'#374151'};">₹${fb.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Final Balance</div></div>
+    <div class="sbox"><div class="sval" style="color:${pendingAmt>0?'#EF4444':'#10B981'};">₹${pendingAmt.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Pending (Unsettled)</div></div>
   </div>
   <h2>📋 Batch Transactions — Settlement Status</h2>
   <table><thead><tr><th>Date</th><th>TID</th><th>Batch #</th><th>Amount</th><th>Status</th></tr></thead>
@@ -1054,6 +1094,260 @@ async function confirmReset(){
   setSyncStatus('syncing');
   await apiPost({action:'resetCompany',companyId:db.activeCompanyId});
   setSyncStatus('ok');
+}
+
+
+// ── STATUS OVERRIDES ────────────────────────────────────────────────────────
+// Manual status overrides: {txnId: 'settled'|'partial'|'pending'}
+function getOverrides(){
+  try{return JSON.parse(localStorage.getItem('pinelab_overrides_'+(db.activeCompanyId||''))||'{}');}catch{return{};}
+}
+function saveOverrides(ov){localStorage.setItem('pinelab_overrides_'+(db.activeCompanyId||''),JSON.stringify(ov));}
+function setOverride(id,status){
+  const ov=getOverrides();
+  if(status==='auto') delete ov[id]; else ov[id]=status;
+  saveOverrides(ov);
+  refreshRecv();
+  if(curTab==='report'){refreshReport();}
+  toast('Status updated ✓');
+}
+
+// ── PATCHED COMPUTE MATCH with overrides ────────────────────────────────────
+function computeMatch(){
+  const ov=getOverrides();
+  const totalReceived=co().received.reduce((s,r)=>s+(r.amount||0),0);
+  const totalBatches=co().transactions.reduce((s,b)=>s+b.amount,0);
+  const TOLERANCE=1.00;
+
+  const byDate=[...co().transactions].sort((a,b)=>
+    a.date.localeCompare(b.date)||(parseInt(a.batch)-parseInt(b.batch))
+  );
+
+  // Separate manually overridden vs auto
+  const autoList=byDate.filter(b=>!ov[b.id]);
+  const manualList=byDate.filter(b=>ov[b.id]);
+
+  // Auto-settle from pool MINUS what manual-settled already consumed
+  const manualSettledAmt=manualList.filter(b=>ov[b.id]==='settled').reduce((s,b)=>s+b.amount,0);
+  let rem=Math.max(0,totalReceived-manualSettledAmt);
+
+  const smap={};
+  // Apply manual overrides
+  manualList.forEach(b=>{
+    const st=ov[b.id];
+    smap[b.id]={status:st,receivedAmt:st==='settled'?b.amount:st==='partial'?rem:0,balance:st==='settled'?0:-b.amount};
+  });
+  // Auto-settle remaining
+  for(const b of autoList){
+    if(rem<=0){
+      smap[b.id]={status:'pending',receivedAmt:0,balance:-b.amount};
+    } else if(rem>=b.amount-TOLERANCE){
+      const got=Math.min(rem,b.amount);
+      rem=Math.max(0,rem-b.amount);
+      smap[b.id]={status:'settled',receivedAmt:got,balance:0};
+    } else {
+      smap[b.id]={status:'partial',receivedAmt:rem,balance:rem-b.amount};
+      rem=0;
+    }
+  }
+
+  const result=[...co().transactions]
+    .sort((a,b)=>a.date.localeCompare(b.date)||(parseInt(a.batch)-parseInt(b.batch)))
+    .map(b=>({...b,...smap[b.id]}));
+
+  // Pending = sum of non-settled batches
+  const totalPending=result.filter(b=>b.status!=='settled').reduce((s,b)=>s+b.amount,0);
+
+  return{
+    batches:result,
+    totalBatches,totalReceived,
+    totalPending,
+    excess:Math.max(0,totalReceived-totalBatches),
+    pendingCount:result.filter(b=>b.status!=='settled').length,
+    settledCount:result.filter(b=>b.status==='settled').length
+  };
+}
+
+// ── LEDGER TAB ──────────────────────────────────────────────────────────────
+const LDG_OB_KEY='pinelab_ob';
+
+function initLedgerTab(){
+  // Set default dates
+  const today=todayStr();
+  const d=new Date();
+  const firstOfMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+  if(!document.getElementById('ldg-from').value) document.getElementById('ldg-from').value=firstOfMonth;
+  if(!document.getElementById('ldg-to').value)   document.getElementById('ldg-to').value=today;
+  // Populate TID filter
+  const sel=document.getElementById('ldg-tid');
+  const cur=sel.value||'ALL';
+  sel.innerHTML='<option value="ALL">All TIDs</option>'+(co().tids||[]).map(t=>`<option${t===cur?' selected':''}>${t}</option>`).join('');
+  // Load OB
+  const saved=localStorage.getItem(LDG_OB_KEY+'_'+(db.activeCompanyId||''));
+  const ob=saved?parseFloat(saved):0;
+  document.getElementById('ob-input').value=ob||'';
+}
+
+function saveLedgerOB(){
+  const val=parseFloat(document.getElementById('ob-input').value)||0;
+  localStorage.setItem(LDG_OB_KEY+'_'+(db.activeCompanyId||''),val);
+  toast('Opening balance saved — '+fmtAmt(val));
+}
+
+function getLedgerOB(){
+  const saved=localStorage.getItem(LDG_OB_KEY+'_'+(db.activeCompanyId||''));
+  return saved?parseFloat(saved):0;
+}
+
+function generateLedger(){
+  const from=document.getElementById('ldg-from').value;
+  const to=document.getElementById('ldg-to').value;
+  const tid=document.getElementById('ldg-tid').value;
+  if(!from||!to)return toast('Select date range','err');
+  if(from>to)return toast('From must be before To','err');
+
+  let txns=co().transactions.filter(t=>t.date>=from&&t.date<=to);
+  let recv=co().received.filter(r=>r.date>=from&&r.date<=to);
+  if(tid!=='ALL')txns=txns.filter(t=>t.tid===tid);
+
+  const ob=getLedgerOB();
+  const totalDr=txns.reduce((s,t)=>s+t.amount,0);
+  const totalCr=recv.reduce((s,r)=>s+r.amount,0);
+
+  // Use override-aware pending from computeMatch so manual status overrides
+  // (e.g. marking #813/#814 settled, #179/#815/#816 pending) are reflected here
+  const m=computeMatch();
+  // Filter match result to only batches within the ledger date/TID range
+  const inRange=new Set(txns.map(t=>t.id));
+  const pending=m.batches.filter(b=>inRange.has(b.id)&&b.status!=='settled').reduce((s,b)=>s+b.amount,0);
+  // Closing balance = OB - pending (what we still owe, from OB perspective)
+  const closingBal=ob>0 ? ob-pending : -pending;
+
+  document.getElementById('ls-ob').textContent=fmtAmt(ob);
+  document.getElementById('ls-dr').textContent=fmtAmt(totalDr);
+  document.getElementById('ls-cr').textContent=fmtAmt(totalCr);
+  document.getElementById('ls-pending').textContent=fmtAmt(pending);
+  const cbEl=document.getElementById('ls-cb');
+  cbEl.textContent=fmtAmt(pending)+' Dr';
+  cbEl.style.color='var(--red)';
+
+  // Store for export
+  window._ldgRows=[
+    ...txns.map(t=>({...t,type:'debit',sortKey:t.date+'_'+String(t.batch).padStart(6,'0')})),
+    ...recv.map(r=>({...r,type:'credit',sortKey:r.date+'_ZZ'}))
+  ].sort((a,b)=>a.sortKey.localeCompare(b.sortKey));
+  window._ldgMeta={ob,totalDr,totalCr,closingBal:pending,from,to};
+
+  // Build rows
+  let bal=ob;
+  let html=`<div class="ledger-row opening">
+    <span class="lr-date"></span><span></span>
+    <span style="font-weight:800;color:var(--navy);grid-column:3;font-size:12px;">OPENING BALANCE</span>
+    <span></span><span></span>
+    <span class="lr-balance" style="color:var(--blue);">${fmtAmt(ob)}</span>
+  </div>`;
+
+  window._ldgRows.forEach(e=>{
+    const isD=e.type==='debit';
+    if(isD) bal-=e.amount; else bal+=e.amount;
+    const balColor=bal<0?'color:var(--red);':bal===0?'color:var(--muted);':'color:var(--navy);';
+    const balLabel=fmtAmt(Math.abs(bal))+(bal<0?' Dr':bal>0?' Cr':'');
+    html+=`<div class="ledger-row">
+      <span class="lr-date">${fmtDate(e.date)}</span>
+      <span class="lr-batch">${e.batch?'#'+e.batch:'—'}</span>
+      <span style="font-size:12px;font-weight:600;">${isD?(e.tid||'Batch'):'Credit Received'}${e.note?'<div style="font-size:10px;color:var(--muted);">'+e.note+'</div>':''}</span>
+      <span class="lr-debit">${isD?fmtAmt(e.amount):'—'}</span>
+      <span class="lr-credit">${!isD?fmtAmt(e.amount):'—'}</span>
+      <span class="lr-balance" style="${balColor}">${balLabel}</span>
+    </div>`;
+  });
+
+  const maxT=Math.max(totalDr,totalCr);
+  html+=`<div class="ledger-row subtotal">
+    <span></span><span></span>
+    <span style="font-weight:800;color:var(--navy);">SUB TOTAL</span>
+    <span class="lr-debit">${fmtAmt(totalDr)}</span>
+    <span class="lr-credit">${fmtAmt(totalCr)}</span>
+    <span></span>
+  </div>
+  <div class="ledger-row total-row">
+    <span></span><span></span>
+    <span>TOTAL</span>
+    <span style="font-family:'Roboto Mono',monospace;text-align:right;color:#FCA5A5;">${fmtAmt(maxT)}</span>
+    <span style="font-family:'Roboto Mono',monospace;text-align:right;color:#6EE7B7;">${fmtAmt(maxT)}</span>
+    <span></span>
+  </div>
+  <div class="ledger-row closing">
+    <span></span><span></span>
+    <span style="font-weight:800;">CLOSING BALANCE <span style="font-size:10px;opacity:.7;font-weight:600;">(Unsettled Batches)</span></span>
+    <span></span><span></span>
+    <span class="lr-balance" style="color:#FCA5A5;">${fmtAmt(pending)} Dr</span>
+  </div>`;
+
+  document.getElementById('ldg-rows').innerHTML=html;
+  document.getElementById('ldg-output').style.display='block';
+  document.getElementById('ldg-output').scrollIntoView({behavior:'smooth'});
+  toast('Ledger generated ✓');
+}
+
+function exportLedgerExcel(){
+  if(!window._ldgRows||!window._ldgRows.length)return toast('Generate ledger first','err');
+  const{ob,totalDr,totalCr,closingBal,from,to}=window._ldgMeta;
+  let bal=ob;
+  const data=[['Date','Batch #','TID / Particulars','Note','Debit (₹)','Credit (₹)','Balance (₹)']];
+  data.push(['','','OPENING BALANCE','','','',ob]);
+  window._ldgRows.forEach(e=>{
+    const isD=e.type==='debit';
+    if(isD) bal-=e.amount; else bal+=e.amount;
+    data.push([fmtDate(e.date),e.batch?'#'+e.batch:'—',isD?(e.tid||'Batch'):'Credit Received',e.note||'',isD?e.amount:'',!isD?e.amount:'',bal]);
+  });
+  data.push([]);
+  data.push(['SUB TOTAL','','','',totalDr,totalCr,'']);
+  data.push(['CLOSING BALANCE','','','','','',closingBal]);
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[12,10,18,16,13,13,14].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb,ws,'Ledger');
+  XLSX.writeFile(wb,`${coInfo().name||'PineLab'}_Ledger_${from}_to_${to}.xlsx`);
+  toast('Excel downloaded!');
+}
+
+function exportLedgerPDF(){
+  if(!window._ldgRows||!window._ldgRows.length)return toast('Generate ledger first','err');
+  const{ob,totalDr,totalCr,closingBal,from,to}=window._ldgMeta;
+  const cname=coInfo().name||'PineLab';
+  let bal=ob;
+  const maxT=Math.max(totalDr,totalCr);
+  let rows=`<tr style="background:#EFF6FF;"><td colspan="4" style="font-weight:800;">OPENING BALANCE</td><td></td><td></td><td style="font-family:monospace;font-weight:700;color:#1B5FBF;">₹${ob.toLocaleString('en-IN',{minimumFractionDigits:2})}</td></tr>`;
+  window._ldgRows.forEach(e=>{
+    const isD=e.type==='debit';
+    if(isD) bal-=e.amount; else bal+=e.amount;
+    const bc=bal<0?'#EF4444':bal===0?'#888':'#0B1E3D';
+    const balLabel=`₹${Math.abs(bal).toLocaleString('en-IN',{minimumFractionDigits:2})}${bal<0?' Dr':bal>0?' Cr':''}`;
+    rows+=`<tr><td>${fmtDate(e.date)}</td><td style="font-family:monospace;font-weight:700;">${e.batch?'#'+e.batch:'—'}</td><td style="font-weight:600;">${isD?(e.tid||'Batch'):'Credit Received'}</td><td style="font-size:11px;color:#7A90B0;">${e.note||''}</td><td style="font-family:monospace;font-weight:700;color:#EF4444;">${isD?'₹'+e.amount.toLocaleString('en-IN',{minimumFractionDigits:2}):''}</td><td style="font-family:monospace;font-weight:700;color:#10B981;">${!isD?'₹'+e.amount.toLocaleString('en-IN',{minimumFractionDigits:2}):''}</td><td style="font-family:monospace;font-weight:700;color:${bc};">${balLabel}</td></tr>`;
+  });
+  rows+=`<tr style="background:#F0F4FA;font-weight:700;"><td colspan="4">SUB TOTAL</td><td style="font-family:monospace;color:#EF4444;">₹${totalDr.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="font-family:monospace;color:#10B981;">₹${totalCr.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td></td></tr>
+  <tr style="background:#142952;color:#fff;font-weight:700;"><td colspan="4">TOTAL</td><td style="font-family:monospace;">₹${maxT.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="font-family:monospace;">₹${maxT.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td></td></tr>
+  <tr style="background:#0B1E3D;color:#fff;font-weight:800;"><td colspan="6">CLOSING BALANCE (Unsettled Batches)</td><td style="font-family:monospace;color:#FCA5A5;">₹${closingBal.toLocaleString('en-IN',{minimumFractionDigits:2})} Dr</td></tr>`;
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>${cname} Ledger</title>
+  <style>body{font-family:Arial,sans-serif;font-size:12px;padding:24px;color:#0B1E3D;}h1{font-size:18px;font-weight:800;margin-bottom:3px;}.meta{color:#7A90B0;font-size:11px;margin-bottom:14px;}
+  .sum{display:flex;gap:10px;margin-bottom:16px;}.sbox{background:#F8FAFD;border:1px solid #DDE5F0;border-radius:8px;padding:10px;flex:1;text-align:center;}.sval{font-size:13px;font-weight:700;font-family:monospace;}.slbl{font-size:9px;color:#7A90B0;text-transform:uppercase;margin-top:2px;}
+  table{width:100%;border-collapse:collapse;}th{background:#0B1E3D;color:#fff;padding:7px 9px;text-align:left;font-size:10px;text-transform:uppercase;}td{padding:7px 9px;border-bottom:1px solid #DDE5F0;font-size:11px;}tr:nth-child(even) td{background:#F8FAFD;}
+  .btn{background:#1B5FBF;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;margin-top:16px;}@media print{.btn{display:none;}}</style></head><body>
+  <h1>🏦 ${cname.toUpperCase()} — E-POS TRANSACTION LEDGER</h1>
+  <div class="meta">Period: ${fmtDate(from)} to ${fmtDate(to)} · Generated: ${new Date().toLocaleString('en-IN')}</div>
+  <div class="sum">
+    <div class="sbox"><div class="sval" style="color:#1B5FBF;">₹${ob.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Opening Bal</div></div>
+    <div class="sbox"><div class="sval" style="color:#EF4444;">₹${totalDr.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Total Debit</div></div>
+    <div class="sbox"><div class="sval" style="color:#10B981;">₹${totalCr.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Total Credit</div></div>
+    <div class="sbox"><div class="sval" style="color:#EF4444;">₹${closingBal.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Pending (Unsettled)</div></div>
+  </div>
+  <table><thead><tr><th>Date</th><th>Batch #</th><th>TID / Particulars</th><th>Note</th><th>Debit (Dr)</th><th>Credit (Cr)</th><th>Balance</th></tr></thead>
+  <tbody>${rows}</tbody></table>
+  <button class="btn" onclick="window.print()">🖨 Print / Save as PDF</button>
+  </body></html>`);
+  w.document.close();toast('PDF opened!');
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────────
