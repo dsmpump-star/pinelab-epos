@@ -402,48 +402,48 @@ async function loadFromSheet(){
     const remote = await apiGet('getAll');
     if(remote.error) throw new Error(remote.error);
 
-    // If no companies exist yet in sheet, create default PineLab
-    if(!remote.companies || remote.companies.length===0){
-      await createDefaultCompany();
-      return loadFromSheet();
+    // Apps Script returns a FLAT structure:
+    // { transactions, received, tids, customers, openingBalance, overrides }
+    // Build a single default company from it if companies not present
+    const isFlat = !remote.companies || remote.companies.length===0;
+
+    if(isFlat){
+      // Use or create a stable default company id stored in localStorage
+      let id = localStorage.getItem('epos_default_co');
+      if(!id){ id='co_pinelab'; localStorage.setItem('epos_default_co',id); }
+
+      db.companies = [{id, name:'PineLab', code:'PL', color:'#1B5FBF', createdAt:''}];
+      db.data = { [id]: {
+        tids: remote.tids || [],
+        transactions: (remote.transactions||[]).map(t=>({...t, date:normalizeDate(t.date), amount:Number(t.amount)})),
+        received:     (remote.received||[]).map(r=>({...r, date:normalizeDate(r.date),     amount:Number(r.amount)}))
+      }};
+      db.activeCompanyId = id;
+    } else {
+      db.companies = remote.companies;
+      db.data      = remote.data || {};
+      db.companies.forEach(c=>{
+        if(!db.data[c.id]) db.data[c.id]={tids:[],transactions:[],received:[]};
+        db.data[c.id].transactions = (db.data[c.id].transactions||[]).map(t=>({...t,date:normalizeDate(t.date),amount:Number(t.amount)}));
+        db.data[c.id].received     = (db.data[c.id].received||[]).map(r=>({...r,date:normalizeDate(r.date),amount:Number(r.amount)}));
+      });
+      const saved = localStorage.getItem(LOCAL_KEY);
+      if(saved && db.companies.find(c=>c.id===saved)) db.activeCompanyId=saved;
+      else db.activeCompanyId = db.companies[0].id;
     }
 
-    db.companies = remote.companies;
-    db.data      = remote.data || {};
-
-    // Load overrides from Sheets into db.overrides
+    // ✅ Load overrides from Sheets — shared across ALL devices
     db.overrides = remote.overrides || {};
-
-    // Ensure all companies have a data entry + normalize all dates
-    db.companies.forEach(c=>{
-      if(!db.data[c.id]) db.data[c.id]={tids:[],transactions:[],received:[]};
-      db.data[c.id].transactions = (db.data[c.id].transactions||[]).map(t=>({
-        ...t,
-        date: normalizeDate(t.date),
-        amount: Number(t.amount)
-      }));
-      db.data[c.id].received = (db.data[c.id].received||[]).map(r=>({
-        ...r,
-        date: normalizeDate(r.date),
-        amount: Number(r.amount)
-      }));
-    });
-
-    // Restore last active company
-    const saved = localStorage.getItem(LOCAL_KEY);
-    if(saved && db.companies.find(c=>c.id===saved)) db.activeCompanyId=saved;
-    else db.activeCompanyId = db.companies[0].id;
 
     setSyncStatus('ok');
     updateTopbar(); renderTIDs(); autoFillBatch(); refreshDSM();
   } catch(e){
     setSyncStatus('err');
     toast('Could not connect to Google Sheets — working offline','err');
-    // fallback to localStorage
     const local = localStorage.getItem('epos_v5');
     if(local){ try{ Object.assign(db, JSON.parse(local)); }catch{} }
     if(!db.companies.length){
-      const id='co_'+Date.now();
+      const id='co_pinelab';
       db.companies=[{id,name:'PineLab',code:'PL',color:'#1B5FBF',createdAt:new Date().toISOString()}];
       db.data={[id]:{tids:['TID-531833','TID-531834','TID-531835','TID-531836','TID-72588055'],transactions:[],received:[]}};
       db.activeCompanyId=id;
