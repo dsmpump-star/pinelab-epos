@@ -364,14 +364,15 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 // db = {
 //   activeCompanyId: 'co_xxx',
 //   companies: [{id, name, code, color, createdAt}],
-//   data: { [companyId]: {tids:[], transactions:[], received:[]} }
+//   data: { [companyId]: {tids:[], transactions:[], received:[]} },
+//   overrides: { txnId: 'settled'|'partial'|'pending' }   ← synced to Sheets
 // }
 // ─────────────────────────────────────────────────────────────────────────────
 const RESET_PIN='1234'; // ← Change to your PIN
 const SHEET_URL='https://script.google.com/macros/s/AKfycbxN_lQOoFAfWiz3N5GFMd_NJCt3-sCp5lbh7Xgfg7oJdCS5O_TMaTJA72B2bmCeZZ1oMQ/exec';
 const LOCAL_KEY='epos_active_co'; // only stores which company is active
 
-let db = { activeCompanyId:null, companies:[], data:{} };
+let db = { activeCompanyId:null, companies:[], data:{}, overrides:{} };
 let syncStatus = 'idle'; // idle | syncing | ok | err
 
 // ── SYNC HELPERS ────────────────────────────────────────────────────────────
@@ -409,6 +410,9 @@ async function loadFromSheet(){
 
     db.companies = remote.companies;
     db.data      = remote.data || {};
+
+    // Load overrides from Sheets into db.overrides
+    db.overrides = remote.overrides || {};
 
     // Ensure all companies have a data entry + normalize all dates
     db.companies.forEach(c=>{
@@ -1097,18 +1101,26 @@ async function confirmReset(){
 }
 
 
-// ── STATUS OVERRIDES ────────────────────────────────────────────────────────
-// Manual status overrides: {txnId: 'settled'|'partial'|'pending'}
+// ── STATUS OVERRIDES (synced to Google Sheets) ──────────────────────────────
+// In-memory cache — loaded from Sheets on startup, written back on every change
 function getOverrides(){
-  try{return JSON.parse(localStorage.getItem('pinelab_overrides_'+(db.activeCompanyId||''))||'{}');}catch{return{};}
+  return db.overrides||(db.overrides={});
 }
-function saveOverrides(ov){localStorage.setItem('pinelab_overrides_'+(db.activeCompanyId||''),JSON.stringify(ov));}
-function setOverride(id,status){
-  const ov=getOverrides();
-  if(status==='auto') delete ov[id]; else ov[id]=status;
-  saveOverrides(ov);
+
+async function setOverride(id,status){
+  if(!db.overrides) db.overrides={};
+  if(status==='auto'){
+    delete db.overrides[id];
+    setSyncStatus('syncing');
+    await apiPost({action:'deleteOverride',txnId:id});
+  } else {
+    db.overrides[id]=status;
+    setSyncStatus('syncing');
+    await apiPost({action:'saveOverride',txnId:id,status});
+  }
+  setSyncStatus('ok');
   refreshRecv();
-  if(curTab==='report'){refreshReport();}
+  if(curTab==='report') refreshReport();
   toast('Status updated ✓');
 }
 
