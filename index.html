@@ -1136,6 +1136,19 @@ async function setOverride(id,status){
   toast('Status updated ✓');
 }
 
+// Reload overrides from Sheets into memory — call this on tab focus/refresh
+async function syncOverrides(){
+  try{
+    const remote=await fetch(`${SHEET_URL}?action=getAll`).then(r=>r.json());
+    if(!remote.error){
+      db.overrides=remote.overrides||{};
+      refreshRecv();
+      if(curTab==='report') refreshReport();
+      if(curTab==='ledger' && document.getElementById('ldg-output').style.display!=='none') generateLedger();
+    }
+  }catch(e){}
+}
+
 // ── PATCHED COMPUTE MATCH with overrides ────────────────────────────────────
 function computeMatch(){
   const ov=getOverrides();
@@ -1419,6 +1432,14 @@ async function runDebug(){
 // ── INIT ───────────────────────────────────────────────────────────────────
 // Load everything from Google Sheets on startup
 loadFromSheet();
+
+// Auto-sync overrides when user returns to the tab/app
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible') syncOverrides();
+});
+
+// Also sync overrides every 30 seconds while app is open
+setInterval(syncOverrides, 30000);
 </script>
 </body>
 </html>
