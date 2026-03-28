@@ -163,6 +163,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <button class="co-switch-btn" onclick="switchTab('companies')">🏢 <span id="topbar-co">Companies</span></button>
       </div>
       <span id="sync-status" style="font-size:10px;color:rgba(255,255,255,.6);">⏳ Loading...</span>
+      <span onclick="showDebug()" style="font-size:10px;color:rgba(255,255,255,.35);cursor:pointer;">🔍 debug</span>
     </div>
   </div>
   <div class="tabs">
@@ -369,7 +370,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 // }
 // ─────────────────────────────────────────────────────────────────────────────
 const RESET_PIN='1234'; // ← Change to your PIN
-const SHEET_URL='https://script.google.com/macros/s/AKfycbxN_lQOoFAfWiz3N5GFMd_NJCt3-sCp5lbh7Xgfg7oJdCS5O_TMaTJA72B2bmCeZZ1oMQ/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbwcXA1Mj6MrtQu6Zh4RigMQ0tLHpIZZadXq2SlGin_bFHN-GeqbREBD2krZG3s1YyreyA/exec';
 const LOCAL_KEY='epos_active_co'; // only stores which company is active
 
 let db = { activeCompanyId:null, companies:[], data:{}, overrides:{} };
@@ -1371,6 +1372,48 @@ function exportLedgerPDF(){
   <button class="btn" onclick="window.print()">🖨 Print / Save as PDF</button>
   </body></html>`);
   w.document.close();toast('PDF opened!');
+}
+
+// ── DEBUG ───────────────────────────────────────────────────────────────────
+async function showDebug(){
+  showModal(`<div style="font-size:15px;font-weight:700;margin-bottom:12px;">🔍 Sync Debug</div>
+    <div id="debug-body" style="font-size:12px;font-family:monospace;background:#F0F4FA;border-radius:8px;padding:12px;word-break:break-all;line-height:1.8;">
+      ⏳ Fetching from Sheets...
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="btn btn-primary btn-sm" onclick="runDebug()">🔄 Refresh</button>
+      <button class="btn btn-outline btn-sm" onclick="closeModal()">Close</button>
+    </div>`);
+  runDebug();
+}
+
+async function runDebug(){
+  const el=document.getElementById('debug-body');
+  if(!el)return;
+  el.innerHTML='⏳ Fetching...';
+  try{
+    const remote=await fetch(`${SHEET_URL}?action=getAll`).then(r=>r.json());
+    const ov=remote.overrides||{};
+    const ovCount=Object.keys(ov).length;
+    const txnCount=(remote.transactions||[]).length;
+    const recvCount=(remote.received||[]).length;
+    const dbOvCount=Object.keys(db.overrides||{}).length;
+    el.innerHTML=`
+      <b>📡 From Sheets:</b><br>
+      Transactions: ${txnCount}<br>
+      Received: ${recvCount}<br>
+      Overrides in Sheet: ${ovCount}<br>
+      Override data: ${JSON.stringify(ov)}<br><br>
+      <b>💾 In Memory (db):</b><br>
+      db.overrides count: ${dbOvCount}<br>
+      db.overrides: ${JSON.stringify(db.overrides||{})}<br><br>
+      <b>📦 localStorage:</b><br>
+      epos_v5 overrides: ${JSON.stringify(JSON.parse(localStorage.getItem('epos_v5')||'{}').overrides||'none')}<br>
+      Stale keys: ${['pinelab_overrides_co_pinelab','pinelab_overrides_'].filter(k=>localStorage.getItem(k)).join(', ')||'none'}
+    `;
+  }catch(e){
+    el.innerHTML='❌ Error: '+e.message;
+  }
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────────
