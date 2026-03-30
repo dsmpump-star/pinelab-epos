@@ -1471,7 +1471,11 @@ function getFYFromDate(d){
 }
 function getCurrentFY(){
   const stored=localStorage.getItem('pinelab_fy');
-  return stored||getFYFromDate(new Date());
+  // Validate stored FY is a proper 4-digit string
+  if(stored && /^\d{4}$/.test(stored)) return stored;
+  // Clear invalid stored value
+  localStorage.removeItem('pinelab_fy');
+  return getFYFromDate(new Date());
 }
 function fmtFY(fy){
   // '2526' → 'FY 2025-26'
@@ -1558,6 +1562,7 @@ async function showDebug(){
     </div>
     <div style="display:flex;gap:8px;margin-top:12px;">
       <button class="btn btn-primary btn-sm" onclick="runDebug()">🔄 Refresh</button>
+      <button class="btn btn-green btn-sm" onclick="loadFromSheet().then(runDebug)">⬇️ Force Reload</button>
       <button class="btn btn-outline btn-sm" onclick="closeModal()">Close</button>
     </div>`);
   runDebug();
@@ -1582,10 +1587,16 @@ async function runDebug(){
       Override data: ${JSON.stringify(ov)}<br><br>
       <b>💾 In Memory (db):</b><br>
       db.overrides count: ${dbOvCount}<br>
-      db.overrides: ${JSON.stringify(db.overrides||{})}<br><br>
+      db.overrides: ${JSON.stringify(db.overrides||{})}<br>
+      db total transactions: ${(co().transactions||[]).length}<br>
+      Active FY: ${getCurrentFY()}<br>
+      FY transactions: ${coFYTransactions().length}<br>
+      FY received: ${coFYReceived().length}<br>
+      FY date range: ${fyStart(getCurrentFY())} → ${fyEnd(getCurrentFY())}<br><br>
       <b>📦 localStorage:</b><br>
       epos_v5 overrides: ${JSON.stringify(JSON.parse(localStorage.getItem('epos_v5')||'{}').overrides||'none')}<br>
-      Stale keys: ${['pinelab_overrides_co_pinelab','pinelab_overrides_'].filter(k=>localStorage.getItem(k)).join(', ')||'none'}
+      Stale keys: ${['pinelab_overrides_co_pinelab','pinelab_overrides_'].filter(k=>localStorage.getItem(k)).join(', ')||'none'}<br>
+      Stored FY: ${localStorage.getItem('pinelab_fy')||'(auto)'}
     `;
   }catch(e){
     el.innerHTML='❌ Error: '+e.message;
