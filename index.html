@@ -1467,7 +1467,10 @@ function exportLedgerPDF(){
 function getFYFromDate(d){
   const dt=d?new Date(d):new Date();
   const y=dt.getFullYear(), m=dt.getMonth(); // 0=Jan
-  return m>=3 ? `${y}${String(y+1).slice(2)}` : `${y-1}${String(y).slice(2)}`;
+  // FY2526 = Apr 2025 to Mar 2026 → last 2 digits of each year
+  const startY = m>=3 ? y : y-1;
+  const endY   = startY+1;
+  return String(startY).slice(-2)+String(endY).slice(-2);
 }
 function getCurrentFY(){
   const stored=localStorage.getItem('pinelab_fy');
