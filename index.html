@@ -203,18 +203,36 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 <!-- ═══ DSM ENTRY ═══ -->
 <div class="page active" id="page-dsm">
+  <!-- FY Banner -->
+  <div id="fy-banner" style="background:linear-gradient(135deg,#142952,#0B1E3D);border-radius:13px;padding:12px 15px;margin-bottom:13px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px;">Financial Year</div>
+      <div id="fy-label" style="font-size:16px;font-weight:800;color:#F59E0B;font-family:'Roboto Mono',monospace;">FY 2025-26</div>
+    </div>
+    <button onclick="showFYSwitcher()" style="background:rgba(245,158,11,.2);border:1.5px solid rgba(245,158,11,.4);border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;color:#F59E0B;cursor:pointer;">🗓 Switch FY</button>
+  </div>
   <div class="card">
     <div class="card-title"><span>📲</span> New Transaction Entry</div>
-    <div class="form-row"><label>Select TID</label><select id="dsm-tid"></select></div>
+    <!-- TID — COMPULSORY FIRST -->
+    <div class="form-row">
+      <label>Select TID <span style="color:var(--red);font-size:13px;">*</span></label>
+      <select id="dsm-tid" onchange="onTIDChange()" style="border-color:var(--border);">
+        <option value="">— Choose TID first —</option>
+      </select>
+      <div id="tid-required-hint" style="font-size:11px;color:var(--red);margin-top:5px;display:none;">⚠️ Please select a TID to continue</div>
+    </div>
     <div class="form-row-2">
-      <div><label>Batch Number</label><input type="number" id="dsm-batch" placeholder="e.g. 760" min="1"></div>
+      <div><label>Batch Number</label><input type="number" id="dsm-batch" placeholder="Auto" min="1" style="background:#F8FAFD;"></div>
       <div><label>Transaction Date</label><input type="date" id="dsm-date"></div>
     </div>
-    <div class="form-row">
-      <label>Transaction Amount (₹)</label>
-      <div class="big-amt-wrap"><span class="big-rupee">₹</span><input type="number" id="dsm-amount" class="big-amt" placeholder="0.00" min="0" step="0.01"></div>
+    <div class="form-row" id="amount-row">
+      <label>Transaction Amount (₹) <span style="color:var(--red);font-size:13px;">*</span></label>
+      <div class="big-amt-wrap">
+        <span class="big-rupee" id="rupee-sign" style="color:var(--muted);">₹</span>
+        <input type="number" id="dsm-amount" class="big-amt" placeholder="Select TID first" min="0" step="0.01" disabled style="opacity:.5;cursor:not-allowed;">
+      </div>
     </div>
-    <button class="btn btn-primary" onclick="saveDSM()">＋ Save Transaction</button>
+    <button class="btn btn-primary" onclick="saveDSM()" id="save-dsm-btn" disabled style="opacity:.5;">＋ Save Transaction</button>
   </div>
   <div class="card">
     <div class="card-title"><span>⚙️</span> Manage TID Numbers</div>
@@ -400,7 +418,8 @@ async function apiPost(payload){
 async function loadFromSheet(){
   setSyncStatus('syncing');
   try{
-    const remote = await apiGet('getAll');
+    const fy=getCurrentFY();
+    const remote = await fetch(`${SHEET_URL}?action=getAll&fy=${fy}`).then(r=>r.json());
     if(remote.error) throw new Error(remote.error);
 
     // Apps Script returns a FLAT structure:
@@ -440,7 +459,7 @@ async function loadFromSheet(){
     localStorage.removeItem('pinelab_overrides_');
 
     setSyncStatus('ok');
-    updateTopbar(); renderTIDs(); autoFillBatch(); refreshDSM();
+    updateTopbar(); updateFYBanner(); renderTIDs(); autoFillBatch(); refreshDSM();
   } catch(e){
     setSyncStatus('err');
     toast('Could not connect to Google Sheets — working offline','err');
@@ -655,8 +674,64 @@ function renderTIDs(){
   const tids=co().tids||[];
   document.getElementById('tid-tags').innerHTML=tids.map(t=>`<span class="tid-tag">${t}<span class="rm" onclick="removeTID('${t}')">×</span></span>`).join('');
   const sel=document.getElementById('dsm-tid'),cur=sel.value;
-  sel.innerHTML='<option value="">— Choose TID —</option>'+tids.map(t=>`<option${t===cur?' selected':''}>${t}</option>`).join('');
+  sel.innerHTML='<option value="">— Choose TID first —</option>'+tids.map(t=>`<option${t===cur?' selected':''}>${t}</option>`).join('');
+  // Re-trigger TID change to update batch/amount state
+  onTIDChange();
   populateRepTid();
+}
+
+function onTIDChange(){
+  const tid=document.getElementById('dsm-tid').value;
+  const amtInput=document.getElementById('dsm-amount');
+  const saveBtn=document.getElementById('save-dsm-btn');
+  const hint=document.getElementById('tid-required-hint');
+  const rupee=document.getElementById('rupee-sign');
+  const tidSel=document.getElementById('dsm-tid');
+
+  if(tid){
+    // Unlock amount and save button
+    amtInput.disabled=false;
+    amtInput.placeholder='0.00';
+    amtInput.style.opacity='1';
+    amtInput.style.cursor='auto';
+    saveBtn.disabled=false;
+    saveBtn.style.opacity='1';
+    rupee.style.color='var(--muted)';
+    tidSel.style.borderColor='var(--green)';
+    hint.style.display='none';
+    // Auto-fill batch for this specific TID
+    autoFillBatchForTID(tid);
+  } else {
+    // Lock amount and save button
+    amtInput.disabled=true;
+    amtInput.placeholder='Select TID first';
+    amtInput.style.opacity='.5';
+    amtInput.style.cursor='not-allowed';
+    amtInput.value='';
+    saveBtn.disabled=true;
+    saveBtn.style.opacity='.5';
+    rupee.style.color='var(--muted)';
+    tidSel.style.borderColor='var(--border)';
+    document.getElementById('dsm-batch').value='';
+  }
+}
+
+function autoFillBatchForTID(tid){
+  // Find the highest batch number for this specific TID in current FY
+  const txns=co().transactions.filter(t=>t.tid===tid);
+  if(txns.length>0){
+    const maxBatch=Math.max(...txns.map(t=>parseInt(t.batch)||0));
+    document.getElementById('dsm-batch').value=maxBatch+1;
+  } else {
+    document.getElementById('dsm-batch').value='';
+    document.getElementById('dsm-batch').placeholder='First batch';
+  }
+}
+
+// Keep for compatibility — called on company switch
+function autoFillBatch(){
+  const tid=document.getElementById('dsm-tid').value;
+  if(tid) autoFillBatchForTID(tid);
 }
 async function addTID(){
   const inp=document.getElementById('new-tid'),val=inp.value.trim().toUpperCase();
@@ -681,31 +756,30 @@ function populateRepTid(){
 
 // ── DSM ENTRY ──────────────────────────────────────────────────────────────
 document.getElementById('dsm-date').value=todayStr();
-function autoFillBatch(){
-  const txns=co().transactions;
-  if(txns.length>0){
-    const last=[...txns].sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0];
-    document.getElementById('dsm-batch').value=parseInt(last.batch)+1;
-  }
-}
 
 async function saveDSM(){
   const tid=document.getElementById('dsm-tid').value.trim();
   const batch=document.getElementById('dsm-batch').value.trim();
   const date=document.getElementById('dsm-date').value;
   const amount=parseFloat(document.getElementById('dsm-amount').value);
-  if(!tid)return toast('Select a TID','err');
+  if(!tid){
+    document.getElementById('tid-required-hint').style.display='block';
+    document.getElementById('dsm-tid').style.borderColor='var(--red)';
+    return toast('Select a TID first','err');
+  }
   if(!batch)return toast('Enter batch number','err');
   if(!date)return toast('Select a date','err');
   if(!amount||amount<=0)return toast('Enter a valid amount','err');
   const entry={id:uid(),tid,batch,date,amount,createdAt:new Date().toISOString()};
   co().transactions.push(entry);
+  // Auto-advance batch for this TID
   document.getElementById('dsm-batch').value=parseInt(batch)+1;
   document.getElementById('dsm-amount').value='';
+  document.getElementById('dsm-amount').focus();
   toast(`Saved ✓  Batch #${batch}  ${fmtAmt(amount)}`);
   refreshDSM(); save();
   setSyncStatus('syncing');
-  await apiPost({action:'saveTransaction',data:{...entry,companyId:db.activeCompanyId}});
+  await apiPost({action:'saveTransaction',data:{...entry,companyId:db.activeCompanyId,fy:getCurrentFY()}});
   setSyncStatus('ok');
 }
 
@@ -714,7 +788,7 @@ async function delTxn(id){
   co().transactions=co().transactions.filter(t=>t.id!==id);
   refreshDSM(); save(); toast('Deleted','err');
   setSyncStatus('syncing');
-  await apiPost({action:'deleteTransaction',id,companyId:db.activeCompanyId});
+  await apiPost({action:'deleteTransaction',id,companyId:db.activeCompanyId,fy:getCurrentFY()});
   setSyncStatus('ok');
 }
 
@@ -743,14 +817,15 @@ async function saveEditTxn(id){
   if(i>=0)co().transactions[i]={...co().transactions[i],tid,batch,date,amount};
   closeModal();refreshDSM();save();toast('Entry updated ✓');
   setSyncStatus('syncing');
-  await apiPost({action:'updateTransaction',data:{...co().transactions[i>= 0?i:0],companyId:db.activeCompanyId}});
+  await apiPost({action:'updateTransaction',data:{...co().transactions[i>=0?i:0],companyId:db.activeCompanyId},fy:getCurrentFY()});
   setSyncStatus('ok');
 }
 
 function refreshDSM(){
   const today=todayStr();
-  const todayT=co().transactions.filter(t=>t.date===today).reverse();
-  const recentT=co().transactions.filter(t=>t.date!==today).reverse().slice(0,40);
+  const fyTxns=coFYTransactions();
+  const todayT=fyTxns.filter(t=>t.date===today).reverse();
+  const recentT=fyTxns.filter(t=>t.date!==today).reverse().slice(0,40);
   document.getElementById('today-count').textContent=`${todayT.length} transaction${todayT.length!==1?'s':''}`;
   const tl=document.getElementById('dsm-today');
   tl.innerHTML=todayT.length===0?'<div class="empty"><div class="ico">📋</div><p>No entries yet for today</p></div>':todayT.map(t=>eHTML(t,true)).join('');
@@ -789,7 +864,7 @@ async function saveRecv(){
   toast(`Saved — ${fmtAmt(amount)}`);
   refreshRecv(); save();
   setSyncStatus('syncing');
-  await apiPost({action:'saveReceived',data:{...entry,companyId:db.activeCompanyId}});
+  await apiPost({action:'saveReceived',data:{...entry,companyId:db.activeCompanyId},fy:getCurrentFY()});
   setSyncStatus('ok');
 }
 async function delRecv(id){
@@ -797,7 +872,7 @@ async function delRecv(id){
   co().received=co().received.filter(r=>r.id!==id);
   refreshRecv(); save(); toast('Deleted','err');
   setSyncStatus('syncing');
-  await apiPost({action:'deleteReceived',id,companyId:db.activeCompanyId});
+  await apiPost({action:'deleteReceived',id,companyId:db.activeCompanyId,fy:getCurrentFY()});
   setSyncStatus('ok');
 }
 function editRecv(id){
@@ -822,7 +897,7 @@ async function saveEditRecv(id){
   if(i>=0)co().received[i]={...co().received[i],date,amount,note};
   closeModal();refreshRecv();save();toast('Updated ✓');
   setSyncStatus('syncing');
-  await apiPost({action:'updateReceived',data:{...co().received[i>=0?i:0],companyId:db.activeCompanyId}});
+  await apiPost({action:'updateReceived',data:{...co().received[i>=0?i:0],companyId:db.activeCompanyId},fy:getCurrentFY()});
   setSyncStatus('ok');
 }
 
@@ -833,7 +908,7 @@ function refreshRecv(){
   document.getElementById('ov-pending').textContent=fmtAmt(m.totalPending);
   document.getElementById('ov-cnt').textContent=m.pendingCount;
 
-  const sorted=[...co().received].sort((a,b)=>b.date.localeCompare(a.date));
+  const sorted=[...coFYReceived()].sort((a,b)=>b.date.localeCompare(a.date));
   document.getElementById('recv-count').textContent=`${sorted.length} entr${sorted.length!==1?'ies':'y'}`;
   const rl=document.getElementById('recv-list');
   rl.innerHTML=!sorted.length
@@ -928,7 +1003,7 @@ function setFilter(f,el){curFilter=f;document.querySelectorAll('.chip').forEach(
 
 function getFilteredTxns(){
   const today=todayStr(),now=new Date();
-  let txns=[...co().transactions];
+  let txns=[...coFYTransactions()];
   if(curFilter==='today')txns=txns.filter(t=>t.date===today);
   else if(curFilter==='week'){const w=new Date(now);w.setDate(w.getDate()-7);txns=txns.filter(t=>new Date(t.date)>=w);}
   else if(curFilter==='month')txns=txns.filter(t=>t.date.startsWith(today.slice(0,7)));
@@ -986,7 +1061,7 @@ function refreshReport(){
 
   // Received table
   const rw=document.getElementById('rep-recv-tbl');
-  const rs=[...co().received].sort((a,b)=>a.date.localeCompare(b.date));
+  const rs=[...coFYReceived()].sort((a,b)=>a.date.localeCompare(b.date));
   if(!rs.length){rw.innerHTML='<div class="empty"><div class="ico">💳</div><p>No received entries</p></div>';}
   else{
     let run=0;
@@ -1012,7 +1087,7 @@ function exportExcel(){
     const mb=mm[t.id]||{status:'pending'};
     return{'Date':fmtDate(t.date),'TID':t.tid,'Batch #':'#'+t.batch,'Amount (₹)':t.amount,'Status':mb.status==='settled'?'🟢 Settled':mb.status==='partial'?'🟡 Partial':'🔴 Pending'};
   });
-  const rs=[...co().received].sort((a,b)=>a.date.localeCompare(b.date));
+  const rs=[...coFYReceived()].sort((a,b)=>a.date.localeCompare(b.date));
   let run=0;
   const rData=rs.map(r=>{run+=r.amount;return{'Credit Date':fmtDate(r.date),'Amount Received (₹)':r.amount,'Note':r.note||'','Running Total (₹)':run,'Balance vs Batches (₹)':run-m.totalBatches};});
   const wb=XLSX.utils.book_new();
@@ -1035,7 +1110,7 @@ function exportPDF(){
     const sc=mb.status==='settled'?'#15803D':mb.status==='partial'?'#92400E':'#B91C1C';
     return`<tr><td>${fmtDate(t.date)}</td><td>${t.tid}</td><td style="font-weight:700;">#${t.batch}</td><td>₹${t.amount.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="color:${sc};font-weight:700;">${sl}</td></tr>`;
   }).join('');
-  const rs=[...co().received].sort((a,b)=>a.date.localeCompare(b.date));
+  const rs=[...coFYReceived()].sort((a,b)=>a.date.localeCompare(b.date));
   let run2=0;
   const rRows=rs.map(r=>{run2+=r.amount;const bal=run2-m.totalBatches;const bc=bal<0?'#B91C1C':bal>0?'#15803D':'#374151';return`<tr><td>${fmtDate(r.date)}</td><td>₹${r.amount.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td>${r.note||'—'}</td><td>₹${run2.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="color:${bc};font-weight:700;">₹${bal.toLocaleString('en-IN',{minimumFractionDigits:2})}</td></tr>`;}).join('');
   const tt=txns.reduce((s,t)=>s+t.amount,0);
@@ -1124,11 +1199,11 @@ async function setOverride(id,status){
   if(status==='auto'){
     delete db.overrides[id];
     setSyncStatus('syncing');
-    await apiPost({action:'deleteOverride',txnId:id});
+    await apiPost({action:'deleteOverride',txnId:id,fy:getCurrentFY()});
   } else {
     db.overrides[id]=status;
     setSyncStatus('syncing');
-    await apiPost({action:'saveOverride',txnId:id,status});
+    await apiPost({action:'saveOverride',txnId:id,status,fy:getCurrentFY()});
   }
   setSyncStatus('ok');
   refreshRecv();
@@ -1139,7 +1214,7 @@ async function setOverride(id,status){
 // Reload overrides from Sheets into memory — call this on tab focus/refresh
 async function syncOverrides(){
   try{
-    const remote=await fetch(`${SHEET_URL}?action=getAll`).then(r=>r.json());
+    const remote=await fetch(`${SHEET_URL}?action=getAll&fy=${getCurrentFY()}`).then(r=>r.json());
     if(!remote.error){
       db.overrides=remote.overrides||{};
       refreshRecv();
@@ -1152,11 +1227,11 @@ async function syncOverrides(){
 // ── PATCHED COMPUTE MATCH with overrides ────────────────────────────────────
 function computeMatch(){
   const ov=getOverrides();
-  const totalReceived=co().received.reduce((s,r)=>s+(r.amount||0),0);
-  const totalBatches=co().transactions.reduce((s,b)=>s+b.amount,0);
+  const totalReceived=coFYReceived().reduce((s,r)=>s+(r.amount||0),0);
+  const totalBatches=coFYTransactions().reduce((s,b)=>s+b.amount,0);
   const TOLERANCE=1.00;
 
-  const byDate=[...co().transactions].sort((a,b)=>
+  const byDate=[...coFYTransactions()].sort((a,b)=>
     a.date.localeCompare(b.date)||(parseInt(a.batch)-parseInt(b.batch))
   );
 
@@ -1387,6 +1462,94 @@ function exportLedgerPDF(){
   w.document.close();toast('PDF opened!');
 }
 
+// ── FINANCIAL YEAR ──────────────────────────────────────────────────────────
+// FY runs Apr 1 → Mar 31. FY2526 = Apr 2025 to Mar 2026.
+function getFYFromDate(d){
+  const dt=d?new Date(d):new Date();
+  const y=dt.getFullYear(), m=dt.getMonth(); // 0=Jan
+  return m>=3 ? `${y}${String(y+1).slice(2)}` : `${y-1}${String(y).slice(2)}`;
+}
+function getCurrentFY(){
+  const stored=localStorage.getItem('pinelab_fy');
+  return stored||getFYFromDate(new Date());
+}
+function fmtFY(fy){
+  // '2526' → 'FY 2025-26'
+  if(!fy||fy.length!==4) return 'FY '+fy;
+  return `FY 20${fy.slice(0,2)}-${fy.slice(2)}`;
+}
+function setActiveFY(fy){
+  localStorage.setItem('pinelab_fy',fy);
+  document.getElementById('fy-label').textContent=fmtFY(fy);
+  // Filter transactions/received to this FY only
+  refreshDSM();
+  if(curTab==='recv') refreshRecv();
+  if(curTab==='report'){populateRepTid();refreshReport();}
+}
+
+// Override co() data getters to filter by active FY
+function fyStart(fy){ return `20${fy.slice(0,2)}-04-01`; }
+function fyEnd(fy){   return `20${fy.slice(2)}-03-31`; }
+
+function coFYTransactions(){
+  const fy=getCurrentFY();
+  const s=fyStart(fy), e=fyEnd(fy);
+  return (co().transactions||[]).filter(t=>t.date>=s&&t.date<=e);
+}
+function coFYReceived(){
+  const fy=getCurrentFY();
+  const s=fyStart(fy), e=fyEnd(fy);
+  return (co().received||[]).filter(r=>r.date>=s&&r.date<=e);
+}
+
+function getAvailableFYs(){
+  // Derive all FYs from transaction/received dates
+  const all=[...(co().transactions||[]),...(co().received||[])];
+  const fys=new Set(all.map(t=>getFYFromDate(t.date)));
+  fys.add(getCurrentFY());
+  fys.add(getFYFromDate(new Date())); // always include current
+  return [...fys].sort().reverse();
+}
+
+function updateFYBanner(){
+  const fy=getCurrentFY();
+  document.getElementById('fy-label').textContent=fmtFY(fy);
+}
+
+function showFYSwitcher(){
+  const fys=getAvailableFYs();
+  const cur=getCurrentFY();
+  const opts=fys.map(fy=>`
+    <div onclick="switchFY('${fy}')" style="padding:13px 16px;border-radius:11px;border:1.5px solid ${fy===cur?'var(--blue)':'var(--border)'};background:${fy===cur?'#EFF6FF':'var(--card)'};margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:15px;font-weight:700;color:${fy===cur?'var(--blue)':'var(--text)'};">${fmtFY(fy)}</span>
+      <span style="font-size:12px;color:var(--muted);">${(co().transactions||[]).filter(t=>getFYFromDate(t.date)===fy).length} batches ${fy===cur?'✅':''}</span>
+    </div>`).join('');
+
+  // Next FY option
+  const now=new Date();
+  const nextFY=getFYFromDate(new Date(now.getFullYear()+(now.getMonth()>=3?1:0),3,1));
+
+  showModal(`
+    <div style="font-size:16px;font-weight:700;margin-bottom:6px;">🗓 Financial Year</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Data is filtered by FY. Switching archives current year's view — all data stays in Sheets.</div>
+    ${opts}
+    ${!fys.includes(nextFY)?`
+    <div style="border-top:1px dashed var(--border);margin:12px 0;padding-top:12px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:700;text-transform:uppercase;">START NEW YEAR</div>
+      <div onclick="switchFY('${nextFY}')" style="padding:13px 16px;border-radius:11px;border:1.5px dashed var(--green);background:#F0FDF4;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:15px;font-weight:700;color:var(--green);">➕ ${fmtFY(nextFY)}</span>
+        <span style="font-size:12px;color:var(--green);">Start fresh</span>
+      </div>
+    </div>`:''}
+    <button class="btn btn-outline" onclick="closeModal()" style="margin-top:8px;width:100%;">Close</button>`);
+}
+
+function switchFY(fy){
+  closeModal();
+  setActiveFY(fy);
+  toast(`Switched to ${fmtFY(fy)}`);
+}
+
 // ── DEBUG ───────────────────────────────────────────────────────────────────
 async function showDebug(){
   showModal(`<div style="font-size:15px;font-weight:700;margin-bottom:12px;">🔍 Sync Debug</div>
@@ -1405,7 +1568,7 @@ async function runDebug(){
   if(!el)return;
   el.innerHTML='⏳ Fetching...';
   try{
-    const remote=await fetch(`${SHEET_URL}?action=getAll`).then(r=>r.json());
+    const remote=await fetch(`${SHEET_URL}?action=getAll&fy=${getCurrentFY()}`).then(r=>r.json());
     const ov=remote.overrides||{};
     const ovCount=Object.keys(ov).length;
     const txnCount=(remote.transactions||[]).length;
