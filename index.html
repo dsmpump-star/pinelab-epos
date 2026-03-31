@@ -436,7 +436,7 @@ async function loadFromSheet(){
       db.data = { [id]: {
         tids: remote.tids || [],
         transactions: (remote.transactions||[]).map(t=>({...t, date:normalizeDate(t.date), amount:Number(t.amount)})),
-        received:     (remote.received||[]).map(r=>({...r, date:normalizeDate(r.date),     amount:Number(r.amount)}))
+        received:     (remote.received||[]).map(r=>({...r, date:normalizeDate(r.date), amount:Number(r.amount), note:r.note||''}))
       }};
       db.activeCompanyId = id;
     } else {
