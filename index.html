@@ -452,12 +452,9 @@ async function loadFromSheet(){
       else db.activeCompanyId = db.companies[0].id;
     }
 
-    // ✅ Load overrides from Sheets — shared across ALL devices
+    // Load overrides and opening balance from Sheets
     db.overrides = remote.overrides || {};
-    // Clear any stale override data and old FY selection
-    localStorage.removeItem('pinelab_overrides_co_pinelab');
-    localStorage.removeItem('pinelab_overrides_');
-    localStorage.removeItem('pinelab_fy'); // always use current FY on fresh sheet
+    db.openingBalance = remote.openingBalance || 0;
 
     setSyncStatus('ok');
     updateTopbar(); updateFYBanner(); renderTIDs(); autoFillBatch(); refreshDSM();
@@ -1218,9 +1215,15 @@ async function syncOverrides(){
     const remote=await fetch(`${SHEET_URL}?action=getAll&fy=${getCurrentFY()}`).then(r=>r.json());
     if(!remote.error){
       db.overrides=remote.overrides||{};
+      db.openingBalance=remote.openingBalance||0;
       refreshRecv();
       if(curTab==='report') refreshReport();
       if(curTab==='ledger' && document.getElementById('ldg-output').style.display!=='none') generateLedger();
+      // Update OB input if ledger tab is open
+      if(curTab==='ledger'){
+        const obInput=document.getElementById('ob-input');
+        if(obInput && db.openingBalance) obInput.value=db.openingBalance;
+      }
     }
   }catch(e){}
 }
@@ -1295,20 +1298,30 @@ function initLedgerTab(){
   const sel=document.getElementById('ldg-tid');
   const cur=sel.value||'ALL';
   sel.innerHTML='<option value="ALL">All TIDs</option>'+(co().tids||[]).map(t=>`<option${t===cur?' selected':''}>${t}</option>`).join('');
-  // Load OB
-  const saved=localStorage.getItem(LDG_OB_KEY+'_'+(db.activeCompanyId||''));
-  const ob=saved?parseFloat(saved):0;
-  document.getElementById('ob-input').value=ob||'';
+  // Load OB — from Sheets first, then localStorage
+  const ob = db.openingBalance || getLedgerOB();
+  document.getElementById('ob-input').value = ob || '';
 }
 
-function saveLedgerOB(){
+async function saveLedgerOB(){
   const val=parseFloat(document.getElementById('ob-input').value)||0;
-  localStorage.setItem(LDG_OB_KEY+'_'+(db.activeCompanyId||''),val);
+  const fy=getCurrentFY();
+  // Save to localStorage as cache
+  localStorage.setItem(LDG_OB_KEY+'_'+(db.activeCompanyId||'')+'_'+fy, val);
+  // Save to Google Sheets so all devices sync
+  setSyncStatus('syncing');
+  await apiPost({action:'saveOpeningBalance', amount:val, fy});
+  setSyncStatus('ok');
   toast('Opening balance saved — '+fmtAmt(val));
 }
 
 function getLedgerOB(){
-  const saved=localStorage.getItem(LDG_OB_KEY+'_'+(db.activeCompanyId||''));
+  const fy=getCurrentFY();
+  // Check Sheets-loaded value first (loaded on startup)
+  if(db.openingBalance && db.openingBalance>0) return db.openingBalance;
+  // Fall back to localStorage
+  const saved=localStorage.getItem(LDG_OB_KEY+'_'+(db.activeCompanyId||'')+'_'+fy)
+    || localStorage.getItem(LDG_OB_KEY+'_'+(db.activeCompanyId||''));
   return saved?parseFloat(saved):0;
 }
 
