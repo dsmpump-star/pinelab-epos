@@ -460,6 +460,7 @@ async function loadFromSheet(){
 
     setSyncStatus('ok');
     updateTopbar(); updateFYBanner(); renderTIDs(); autoFillBatch(); refreshDSM();
+    autoSelectFY();
   } catch(e){
     setSyncStatus('err');
     toast('Could not connect to Google Sheets — working offline','err');
@@ -1479,6 +1480,28 @@ function getCurrentFY(){
   // Clear invalid stored value
   localStorage.removeItem('pinelab_fy');
   return getFYFromDate(new Date());
+}
+
+// Called after data loads — if current FY has no transactions, switch to previous FY
+function autoSelectFY(){
+  const curFY=getCurrentFY();
+  const curTxns=coFYTransactions();
+  if(curTxns.length===0){
+    // Try previous FY
+    const d=new Date();
+    const prevFYStart=new Date(d.getFullYear()-1, 3, 1); // Apr 1 of prev year
+    const prevFY=getFYFromDate(prevFYStart);
+    const prevTxns=(co().transactions||[]).filter(t=>{
+      const s=fyStart(prevFY), e=fyEnd(prevFY);
+      return t.date>=s && t.date<=e;
+    });
+    if(prevTxns.length>0 && curFY!==prevFY){
+      // Auto-switch to previous FY silently
+      localStorage.setItem('pinelab_fy', prevFY);
+      updateFYBanner();
+      toast(`Showing FY ${fmtFY(prevFY)} — tap 🗓 Switch FY to change`);
+    }
+  }
 }
 function fmtFY(fy){
   // '2526' → 'FY 2025-26'
