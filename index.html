@@ -388,7 +388,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 // }
 // ─────────────────────────────────────────────────────────────────────────────
 const RESET_PIN='1234'; // ← Change to your PIN
-const SHEET_URL='https://script.google.com/macros/s/AKfycbwcXA1Mj6MrtQu6Zh4RigMQ0tLHpIZZadXq2SlGin_bFHN-GeqbREBD2krZG3s1YyreyA/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbyaU2xr-mOyyHsWEq0DXcPM5M4izSCAAiRnTE-R0FWa33QC0YXJRjY2t7o27fHAEqNoHw/exec';
 const LOCAL_KEY='epos_active_co'; // only stores which company is active
 
 let db = { activeCompanyId:null, companies:[], data:{}, overrides:{} };
@@ -454,13 +454,13 @@ async function loadFromSheet(){
 
     // ✅ Load overrides from Sheets — shared across ALL devices
     db.overrides = remote.overrides || {};
-    // Clear any stale override data that may be cached in localStorage
+    // Clear any stale override data and old FY selection
     localStorage.removeItem('pinelab_overrides_co_pinelab');
     localStorage.removeItem('pinelab_overrides_');
+    localStorage.removeItem('pinelab_fy'); // always use current FY on fresh sheet
 
     setSyncStatus('ok');
     updateTopbar(); updateFYBanner(); renderTIDs(); autoFillBatch(); refreshDSM();
-    autoSelectFY();
   } catch(e){
     setSyncStatus('err');
     toast('Could not connect to Google Sheets — working offline','err');
