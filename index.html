@@ -1228,55 +1228,78 @@ async function syncOverrides(){
   }catch(e){}
 }
 
-// ── PATCHED COMPUTE MATCH with overrides ────────────────────────────────────
+// ── COMPUTE MATCH — Credit-by-credit sequential matching ─────────────────────
+// Each received credit settles batches in oldest-first order, but ONLY
+// batches with date STRICTLY BEFORE the credit date (T+1 settlement).
+// Same-day batches are never settled by same-day credits.
+// Manual overrides always take priority.
 function computeMatch(){
   const ov=getOverrides();
-  const totalReceived=coFYReceived().reduce((s,r)=>s+(r.amount||0),0);
-  const totalBatches=coFYTransactions().reduce((s,b)=>s+b.amount,0);
+  const allTxns=coFYTransactions();
+  const allRecv=coFYReceived();
+  const totalReceived=allRecv.reduce((s,r)=>s+(r.amount||0),0);
+  const totalBatches=allTxns.reduce((s,b)=>s+b.amount,0);
   const TOLERANCE=1.00;
 
-  const byDate=[...coFYTransactions()].sort((a,b)=>
+  // Sort batches oldest first
+  const byDate=[...allTxns].sort((a,b)=>
     a.date.localeCompare(b.date)||(parseInt(a.batch)-parseInt(b.batch))
   );
-
-  // Separate manually overridden vs auto
-  const autoList=byDate.filter(b=>!ov[b.id]);
-  const manualList=byDate.filter(b=>ov[b.id]);
-
-  // Auto-settle from pool MINUS what manual-settled already consumed
-  const manualSettledAmt=manualList.filter(b=>ov[b.id]==='settled').reduce((s,b)=>s+b.amount,0);
-  let rem=Math.max(0,totalReceived-manualSettledAmt);
+  // Sort credits oldest first
+  const recvSorted=[...allRecv].sort((a,b)=>a.date.localeCompare(b.date));
 
   const smap={};
-  // Apply manual overrides
-  manualList.forEach(b=>{
+  // Track how much of each batch has been settled
+  const settled={};
+  byDate.forEach(b=>{ settled[b.id]=0; });
+
+  // Apply manual overrides first — remove them from auto pool
+  byDate.filter(b=>ov[b.id]).forEach(b=>{
     const st=ov[b.id];
-    smap[b.id]={status:st,receivedAmt:st==='settled'?b.amount:st==='partial'?rem:0,balance:st==='settled'?0:-b.amount};
+    smap[b.id]={status:st, receivedAmt:st==='settled'?b.amount:0, balance:st==='settled'?0:-b.amount};
+    if(st==='settled') settled[b.id]=b.amount; // mark as fully consumed
   });
-  // Auto-settle remaining
-  for(const b of autoList){
-    if(rem<=0){
-      smap[b.id]={status:'pending',receivedAmt:0,balance:-b.amount};
-    } else if(rem>=b.amount-TOLERANCE){
-      const got=Math.min(rem,b.amount);
-      rem=Math.max(0,rem-b.amount);
-      smap[b.id]={status:'settled',receivedAmt:got,balance:0};
-    } else {
-      smap[b.id]={status:'partial',receivedAmt:rem,balance:rem-b.amount};
-      rem=0;
+
+  // Process each credit sequentially — settle oldest eligible batches first
+  for(const credit of recvSorted){
+    let rem=credit.amount;
+    // Consume any manual-settled batches' amounts first (they were already credited)
+    // Only auto batches with date < credit date are eligible
+    const eligible=byDate.filter(b=>
+      !ov[b.id] &&           // not manually overridden
+      b.date < credit.date   // batch must be from BEFORE credit date (T+1)
+    );
+    for(const b of eligible){
+      if(rem<=0) break;
+      const stillNeeded=b.amount-settled[b.id];
+      if(stillNeeded<=0) continue;
+      const paying=Math.min(rem, stillNeeded);
+      settled[b.id]+=paying;
+      rem=Math.max(0,rem-paying);
     }
   }
 
-  const result=[...co().transactions]
-    .sort((a,b)=>a.date.localeCompare(b.date)||(parseInt(a.batch)-parseInt(b.batch)))
-    .map(b=>({...b,...smap[b.id]}));
+  // Build result based on settled amounts
+  byDate.filter(b=>!ov[b.id]).forEach(b=>{
+    const s=settled[b.id]||0;
+    if(s>=b.amount-TOLERANCE){
+      smap[b.id]={status:'settled', receivedAmt:b.amount, balance:0};
+    } else if(s>0){
+      smap[b.id]={status:'partial', receivedAmt:s, balance:s-b.amount};
+    } else {
+      smap[b.id]={status:'pending', receivedAmt:0, balance:-b.amount};
+    }
+  });
 
-  // Pending = sum of non-settled batches
+  const result=[...allTxns]
+    .sort((a,b)=>a.date.localeCompare(b.date)||(parseInt(a.batch)-parseInt(b.batch)))
+    .map(b=>({...b,...(smap[b.id]||{status:'pending',receivedAmt:0,balance:-b.amount})}));
+
   const totalPending=result.filter(b=>b.status!=='settled').reduce((s,b)=>s+b.amount,0);
 
   return{
     batches:result,
-    totalBatches,totalReceived,
+    totalBatches, totalReceived,
     totalPending,
     excess:Math.max(0,totalReceived-totalBatches),
     pendingCount:result.filter(b=>b.status!=='settled').length,
