@@ -242,6 +242,17 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <button class="btn btn-sm btn-accent" onclick="addTID()">+ Add</button>
     </div>
   </div>
+  <!-- Bank Holidays Card -->
+  <div class="card">
+    <div class="card-title"><span>🏦</span> Bank Holidays
+      <span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:4px;">2nd Sat auto-included</span>
+    </div>
+    <div id="holiday-tags" style="display:flex;flex-wrap:wrap;margin-bottom:11px;min-height:30px;"></div>
+    <div style="display:flex;gap:8px;">
+      <input type="date" id="new-holiday" style="flex:1;">
+      <button class="btn btn-sm btn-accent" onclick="addHoliday()">+ Add</button>
+    </div>
+  </div>
   <div class="sh"><div class="sh-title">Today's Entries</div><div class="sh-count" id="today-count">0 transactions</div></div>
   <div id="dsm-today"></div>
   <div class="divider"></div>
@@ -1236,18 +1247,88 @@ async function syncOverrides(){
   }catch(e){}
 }
 
-// Returns next settlement day:
-// Mon-Fri batch → next calendar day (T+1)
-// Saturday batch → Monday (banks closed Sun)
-// Sunday batch → Monday
+// ── BANK HOLIDAY MANAGEMENT ──────────────────────────────────────────────────
+const HOLIDAY_KEY = 'pinelab_holidays';
+
+function getHolidays(){
+  try{ return JSON.parse(localStorage.getItem(HOLIDAY_KEY)||'[]'); }
+  catch{ return []; }
+}
+function saveHolidays(list){
+  localStorage.setItem(HOLIDAY_KEY, JSON.stringify(list));
+}
+
+// Returns true if date is a 2nd Saturday of its month
+function isSecondSaturday(dateStr){
+  const d=new Date(dateStr+'T00:00:00');
+  if(d.getDay()!==6) return false; // not Saturday
+  const day=d.getDate();
+  return day>=8&&day<=14; // 2nd Saturday = 8th to 14th
+}
+
+// Returns true if date is a bank holiday (custom or 2nd Sat or Sun)
+function isBankHoliday(dateStr){
+  const d=new Date(dateStr+'T00:00:00');
+  const dow=d.getDay();
+  if(dow===0) return true; // Sunday always
+  if(isSecondSaturday(dateStr)) return true; // 2nd Saturday
+  return getHolidays().includes(dateStr); // custom holidays
+}
+
+// Returns next settlement day considering all holidays
+// T+1 but skips Sundays, 2nd Saturdays, and custom bank holidays
 function nextBusinessDay(dateStr){
   const d=new Date(dateStr+'T00:00:00');
   d.setDate(d.getDate()+1);
-  // Only skip Sunday — Saturday credits are processed (banks work Sat)
-  // But if we land on Sunday, move to Monday
-  while(d.getDay()===0) d.setDate(d.getDate()+1);
+  let safety=0;
+  while(isBankHoliday(d.toISOString().split('T')[0])&&safety++<10){
+    d.setDate(d.getDate()+1);
+  }
   return d.toISOString().split('T')[0];
 }
+
+function renderHolidays(){
+  const holidays=getHolidays().sort();
+  const wrap=document.getElementById('holiday-tags');
+  if(!wrap) return;
+  if(!holidays.length){
+    wrap.innerHTML='<span style="font-size:12px;color:var(--muted);">No custom holidays added</span>';
+    return;
+  }
+  wrap.innerHTML=holidays.map(h=>`
+    <span class="tid-tag" style="background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;">
+      ${fmtDate(h)}
+      <span class="rm" onclick="removeHoliday('${h}')" style="color:var(--red);">×</span>
+    </span>`).join('');
+}
+
+function addHoliday(){
+  const inp=document.getElementById('new-holiday');
+  const val=inp.value;
+  if(!val) return toast('Select a date','err');
+  const holidays=getHolidays();
+  if(holidays.includes(val)) return toast('Already added','err');
+  if(isBankHoliday(val)&&!holidays.includes(val)&&new Date(val+'T00:00:00').getDay()===0)
+    return toast('Sundays are already excluded','err');
+  holidays.push(val);
+  saveHolidays(holidays);
+  inp.value='';
+  renderHolidays();
+  // Refresh match since settlement dates changed
+  if(curTab==='recv') refreshRecv();
+  if(curTab==='report') refreshReport();
+  toast(`Holiday added: ${fmtDate(val)}`);
+}
+
+function removeHoliday(dateStr){
+  const holidays=getHolidays().filter(h=>h!==dateStr);
+  saveHolidays(holidays);
+  renderHolidays();
+  if(curTab==='recv') refreshRecv();
+  if(curTab==='report') refreshReport();
+  toast('Holiday removed');
+}
+
 
 // ── COMPUTE MATCH — Credit-by-credit sequential matching (T+1, weekend-aware) ──
 // Each received credit settles batches whose nextBusinessDay <= credit date.
@@ -1696,7 +1777,7 @@ async function runDebug(){
 
 // ── INIT ───────────────────────────────────────────────────────────────────
 // Load everything from Google Sheets on startup
-loadFromSheet();
+loadFromSheet().then(()=>renderHolidays());
 
 // Auto-sync overrides when user returns to the tab/app
 document.addEventListener('visibilitychange', ()=>{
