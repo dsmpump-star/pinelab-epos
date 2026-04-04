@@ -833,10 +833,18 @@ function refreshDSM(){
   const g={};recentT.forEach(t=>{if(!g[t.date])g[t.date]=[];g[t.date].push(t);});
   rl.innerHTML=Object.entries(g).map(([d,es])=>`<div class="dg-header">📅 ${fmtDate(d)}</div>`+es.map(t=>eHTML(t,false)).join('')).join('');
 }
+function fmtTimestamp(iso){
+  if(!iso) return '';
+  try{
+    const d=new Date(iso);
+    return d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
+  }catch{return '';}
+}
 function eHTML(t,showDel){
+  const ts=t.createdAt?fmtTimestamp(t.createdAt):'';
   return`<div class="entry-item">
     <div class="entry-top">
-      <div><div class="e-tid">${t.tid}</div><div class="e-meta">📅 ${fmtDate(t.date)}</div></div>
+      <div><div class="e-tid">${t.tid}</div><div class="e-meta">📅 ${fmtDate(t.date)}${ts?' · 🕐 '+ts:''}</div></div>
       <div><div class="e-amt">${fmtAmt(t.amount)}</div><div class="e-batch">Batch #${t.batch}</div></div>
     </div>
     <div class="entry-actions">
@@ -913,7 +921,7 @@ function refreshRecv(){
     ?'<div class="empty"><div class="ico">💳</div><p>No received entries yet</p></div>'
     :sorted.map(r=>`<div class="recv-entry">
         <div class="recv-header"><div class="recv-label">${fmtAmt(r.amount)}</div><span class="badge bb">Received</span></div>
-        <div class="recv-sub">📅 ${fmtDate(r.date)}${r.note?' · '+r.note:''}</div>
+        <div class="recv-sub">📅 ${fmtDate(r.date)}${r.note?' · '+r.note:''}${r.savedAt?' · 🕐 '+fmtTimestamp(r.savedAt):''}</div>
         <div class="recv-actions">
           <button class="btn btn-sm btn-edit" onclick="editRecv('${r.id}')">✏️ Edit</button>
           <button class="btn btn-sm btn-del" onclick="delRecv('${r.id}')">✕ Delete</button>
@@ -1228,11 +1236,22 @@ async function syncOverrides(){
   }catch(e){}
 }
 
-// ── COMPUTE MATCH — Credit-by-credit sequential matching ─────────────────────
-// Each received credit settles batches in oldest-first order, but ONLY
-// batches with date STRICTLY BEFORE the credit date (T+1 settlement).
-// Same-day batches are never settled by same-day credits.
-// Manual overrides always take priority.
+// Returns next settlement day:
+// Mon-Fri batch → next calendar day (T+1)
+// Saturday batch → Monday (banks closed Sun)
+// Sunday batch → Monday
+function nextBusinessDay(dateStr){
+  const d=new Date(dateStr+'T00:00:00');
+  d.setDate(d.getDate()+1);
+  // Only skip Sunday — Saturday credits are processed (banks work Sat)
+  // But if we land on Sunday, move to Monday
+  while(d.getDay()===0) d.setDate(d.getDate()+1);
+  return d.toISOString().split('T')[0];
+}
+
+// ── COMPUTE MATCH — Credit-by-credit sequential matching (T+1, weekend-aware) ──
+// Each received credit settles batches whose nextBusinessDay <= credit date.
+// Sat/Sun batches settle on Monday. Manual overrides take priority.
 function computeMatch(){
   const ov=getOverrides();
   const allTxns=coFYTransactions();
@@ -1263,11 +1282,11 @@ function computeMatch(){
   // Process each credit sequentially — settle oldest eligible batches first
   for(const credit of recvSorted){
     let rem=credit.amount;
-    // Consume any manual-settled batches' amounts first (they were already credited)
-    // Only auto batches with date < credit date are eligible
+    // Only settle batches whose next business day <= credit date
+    // (T+1: batch settles next working day; Sat/Sun settle on Monday)
     const eligible=byDate.filter(b=>
-      !ov[b.id] &&           // not manually overridden
-      b.date < credit.date   // batch must be from BEFORE credit date (T+1)
+      !ov[b.id] &&                              // not manually overridden
+      nextBusinessDay(b.date) <= credit.date    // batch's settlement day reached
     );
     for(const b of eligible){
       if(rem<=0) break;
@@ -1321,9 +1340,18 @@ function initLedgerTab(){
   const sel=document.getElementById('ldg-tid');
   const cur=sel.value||'ALL';
   sel.innerHTML='<option value="ALL">All TIDs</option>'+(co().tids||[]).map(t=>`<option${t===cur?' selected':''}>${t}</option>`).join('');
-  // Load OB — from Sheets first, then localStorage
-  const ob = db.openingBalance || getLedgerOB();
+  // Load OB from Sheets (db.openingBalance set on load/sync), fallback localStorage
+  const ob = getLedgerOB();
   document.getElementById('ob-input').value = ob || '';
+  // Also refresh OB from Sheets in background to ensure latest value
+  fetch(`${SHEET_URL}?action=getAll&fy=${getCurrentFY()}`)
+    .then(r=>r.json())
+    .then(remote=>{
+      if(!remote.error && remote.openingBalance){
+        db.openingBalance=remote.openingBalance;
+        document.getElementById('ob-input').value=remote.openingBalance;
+      }
+    }).catch(()=>{});
 }
 
 async function saveLedgerOB(){
@@ -1340,8 +1368,9 @@ async function saveLedgerOB(){
 
 function getLedgerOB(){
   const fy=getCurrentFY();
-  // Check Sheets-loaded value first (loaded on startup)
-  if(db.openingBalance && db.openingBalance>0) return db.openingBalance;
+  // Sheets value takes priority (set on load and sync)
+  if(db.openingBalance!==undefined&&db.openingBalance!==null&&db.openingBalance!==0)
+    return db.openingBalance;
   // Fall back to localStorage
   const saved=localStorage.getItem(LDG_OB_KEY+'_'+(db.activeCompanyId||'')+'_'+fy)
     || localStorage.getItem(LDG_OB_KEY+'_'+(db.activeCompanyId||''));
