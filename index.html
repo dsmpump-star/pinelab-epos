@@ -562,10 +562,10 @@ function toast(msg,type='ok'){const t=document.getElementById('toast');t.textCon
 function updateTopbar(){
   const c=coInfo();
   const icon=document.getElementById('topbar-icon');
-  icon.textContent=c.code||'?';
+  icon.textContent=c.code||'CE';
   icon.style.background=c.color||'var(--accent)';
-  icon.style.color=c.color?'#fff':'var(--navy)';
-  document.getElementById('topbar-name').textContent=(c.name||'E-POS')+' E-POS';
+  icon.style.color='#fff';
+  document.getElementById('topbar-name').textContent='Card EPOS Checker';
   document.getElementById('topbar-co').textContent=c.name||'Switch';
 }
 
