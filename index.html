@@ -1332,54 +1332,55 @@ function removeHoliday(dateStr){
 
 // ── COMPUTE MATCH — Credit-by-credit sequential matching (T+1, weekend-aware) ──
 // Each received credit settles batches whose nextBusinessDay <= credit date.
-// Sat/Sun batches settle on Monday. Manual overrides take priority.
+// Sat/Sun batches settle Monday. 2nd Saturday = bank holiday.
+// STRICT: leftover credit CANNOT settle same-day batches — carries to next credit.
+// ₹10 buffer for rounding differences. Manual overrides take priority.
 function computeMatch(){
   const ov=getOverrides();
   const allTxns=coFYTransactions();
   const allRecv=coFYReceived();
   const totalReceived=allRecv.reduce((s,r)=>s+(r.amount||0),0);
   const totalBatches=allTxns.reduce((s,b)=>s+b.amount,0);
-  const TOLERANCE=1.00;
+  const TOLERANCE=10.00; // ₹10 buffer
 
-  // Sort batches oldest first
   const byDate=[...allTxns].sort((a,b)=>
     a.date.localeCompare(b.date)||(parseInt(a.batch)-parseInt(b.batch))
   );
-  // Sort credits oldest first
   const recvSorted=[...allRecv].sort((a,b)=>a.date.localeCompare(b.date));
 
   const smap={};
-  // Track how much of each batch has been settled
   const settled={};
   byDate.forEach(b=>{ settled[b.id]=0; });
 
-  // Apply manual overrides first — remove them from auto pool
+  // Apply manual overrides first
   byDate.filter(b=>ov[b.id]).forEach(b=>{
     const st=ov[b.id];
     smap[b.id]={status:st, receivedAmt:st==='settled'?b.amount:0, balance:st==='settled'?0:-b.amount};
-    if(st==='settled') settled[b.id]=b.amount; // mark as fully consumed
+    if(st==='settled') settled[b.id]=b.amount;
   });
 
-  // Process each credit sequentially — settle oldest eligible batches first
+  // Process each credit strictly:
+  // 1. batch.date MUST be < credit.date (never settle same-day batches)
+  // 2. nextBusinessDay(batch.date) must be <= credit.date
+  // 3. Leftover does NOT spill into same-day batches
   for(const credit of recvSorted){
     let rem=credit.amount;
-    // Only settle batches whose next business day <= credit date
-    // (T+1: batch settles next working day; Sat/Sun settle on Monday)
     const eligible=byDate.filter(b=>
-      !ov[b.id] &&                              // not manually overridden
-      nextBusinessDay(b.date) <= credit.date    // batch's settlement day reached
+      !ov[b.id] &&
+      b.date < credit.date &&
+      nextBusinessDay(b.date) <= credit.date
     );
     for(const b of eligible){
       if(rem<=0) break;
-      const stillNeeded=b.amount-settled[b.id];
-      if(stillNeeded<=0) continue;
-      const paying=Math.min(rem, stillNeeded);
-      settled[b.id]+=paying;
-      rem=Math.max(0,rem-paying);
+      const need=b.amount-settled[b.id];
+      if(need<=0) continue;
+      const pay=Math.min(rem, need);
+      settled[b.id]+=pay;
+      rem-=pay;
     }
+    // Leftover rem is NOT applied to same-day batches
   }
 
-  // Build result based on settled amounts
   byDate.filter(b=>!ov[b.id]).forEach(b=>{
     const s=settled[b.id]||0;
     if(s>=b.amount-TOLERANCE){
@@ -1406,6 +1407,7 @@ function computeMatch(){
     settledCount:result.filter(b=>b.status==='settled').length
   };
 }
+
 
 // ── LEDGER TAB ──────────────────────────────────────────────────────────────
 const LDG_OB_KEY='pinelab_ob';
