@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Card EPOS Checker</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0B1E3D">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="EPOS">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-startup-image" href="icon-512.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Roboto+Mono:wght@400;500;600;700&display=swap');
@@ -2060,7 +2070,76 @@ function autoDownloadLedger(){
   console.log('📊 Daily ledger downloaded at noon');
 }
 
-// ── INIT ───────────────────────────────────────────────────────────────────
+// ── PWA SERVICE WORKER + INSTALL PROMPT ────────────────────────────────────
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js')
+      .then(reg=>{
+        console.log('SW registered:', reg.scope);
+        // Listen for messages from SW (e.g. download ledger)
+        navigator.serviceWorker.addEventListener('message', e=>{
+          if(e.data&&e.data.type==='DOWNLOAD_LEDGER') autoDownloadLedger();
+        });
+      })
+      .catch(err=>console.log('SW error:', err));
+  });
+}
+
+// Install prompt — show "Add to Home Screen" button
+let _installPrompt=null;
+window.addEventListener('beforeinstallprompt', e=>{
+  e.preventDefault();
+  _installPrompt=e;
+  // Show install banner after 3 seconds
+  setTimeout(showInstallBanner, 3000);
+});
+
+function showInstallBanner(){
+  if(!_installPrompt) return;
+  // Don't show if already installed
+  if(window.matchMedia('(display-mode: standalone)').matches) return;
+  const banner=document.createElement('div');
+  banner.id='install-banner';
+  banner.style.cssText='position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#0B1E3D;color:#fff;padding:12px 18px;border-radius:14px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:998;max-width:340px;width:calc(100% - 32px);';
+  banner.innerHTML=`
+    <img src="icon-192.png" style="width:36px;height:36px;border-radius:8px;flex-shrink:0;">
+    <div style="flex:1;">
+      <div style="font-size:13px;font-weight:700;">Install Card EPOS Checker</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.6);">Add to home screen for quick access</div>
+    </div>
+    <button onclick="doInstall()" style="background:#F59E0B;border:none;color:#0B1E3D;font-weight:800;padding:8px 14px;border-radius:9px;cursor:pointer;font-size:12px;white-space:nowrap;">Install</button>
+    <button onclick="document.getElementById('install-banner').remove()" style="background:transparent;border:none;color:rgba(255,255,255,.5);font-size:18px;cursor:pointer;padding:0 4px;">×</button>
+  `;
+  document.body.appendChild(banner);
+  // Auto-hide after 8 seconds
+  setTimeout(()=>banner&&banner.remove(), 8000);
+}
+
+async function doInstall(){
+  if(!_installPrompt) return;
+  _installPrompt.prompt();
+  const {outcome}=await _installPrompt.userChoice;
+  _installPrompt=null;
+  document.getElementById('install-banner')?.remove();
+  if(outcome==='accepted') toast('App installed! ✅ Check your home screen');
+}
+
+// iOS install hint (Safari doesn't support beforeinstallprompt)
+if(/iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.navigator.standalone){
+  setTimeout(()=>{
+    const banner=document.createElement('div');
+    banner.style.cssText='position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#0B1E3D;color:#fff;padding:12px 16px;border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:998;max-width:320px;width:calc(100% - 32px);text-align:center;';
+    banner.innerHTML=`
+      <img src="icon-192.png" style="width:48px;height:48px;border-radius:12px;margin-bottom:8px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Install Card EPOS Checker</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.65);line-height:1.5;">Tap <strong>Share</strong> (□↑) then <strong>"Add to Home Screen"</strong></div>
+      <button onclick="this.parentElement.remove()" style="margin-top:10px;background:rgba(255,255,255,.15);border:none;color:#fff;padding:7px 20px;border-radius:8px;cursor:pointer;font-size:12px;">Got it</button>
+    `;
+    document.body.appendChild(banner);
+    setTimeout(()=>banner&&banner.remove(), 10000);
+  }, 3000);
+}
+
 // Load everything from Google Sheets on startup
 loadFromSheet().then(()=>{ renderHolidays(); scheduleDailyLedger(); setTimeout(autoClearOverrides,3000); });
 
