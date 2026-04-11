@@ -108,6 +108,36 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .modal-overlay.open{display:flex;}
 .modal-box{background:#fff;border-radius:22px 22px 0 0;padding:22px 18px 36px;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;}
 .modal-handle{width:38px;height:4px;background:var(--border);border-radius:4px;margin:0 auto 18px;}
+
+/* DASHBOARD */
+.dash-hero{background:linear-gradient(135deg,var(--navy),#0D3060);border-radius:16px;padding:20px 18px;margin-bottom:13px;color:#fff;}
+.dash-pending-lbl{font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+.dash-pending-amt{font-size:36px;font-weight:800;font-family:'Roboto Mono',monospace;color:#FCA5A5;line-height:1;}
+.dash-pending-sub{font-size:12px;color:rgba(255,255,255,.5);margin-top:4px;}
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:13px;}
+.dash-card{background:var(--card);border-radius:13px;padding:14px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(11,30,61,.06);}
+.dash-card-val{font-size:18px;font-weight:700;font-family:'Roboto Mono',monospace;margin-bottom:3px;}
+.dash-card-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;}
+.dash-card.green .dash-card-val{color:var(--green);}
+.dash-card.orange .dash-card-val{color:#F97316;}
+.dash-card.blue .dash-card-val{color:var(--blue);}
+.dash-card.red .dash-card-val{color:var(--red);}
+.dash-recent{background:var(--card);border-radius:13px;border:1px solid var(--border);overflow:hidden;margin-bottom:13px;}
+.dash-recent-hdr{background:var(--navy2);color:#fff;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.dash-batch-row{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:1px solid var(--border);}
+.dash-batch-row:last-child{border-bottom:none;}
+.dash-status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-right:8px;}
+/* SEARCH */
+.search-wrap{position:relative;margin-bottom:13px;}
+.search-wrap input{padding-left:36px!important;}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px;pointer-events:none;}
+/* SWIPE DELETE */
+.entry-item{position:relative;overflow:hidden;}
+.swipe-del-btn{position:absolute;right:0;top:0;bottom:0;width:70px;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;cursor:pointer;transform:translateX(100%);transition:transform .2s;}
+.entry-item.swiped .swipe-del-btn{transform:translateX(0);}
+.entry-inner{transition:transform .2s;background:var(--card);}
+.entry-item.swiped .entry-inner{transform:translateX(-70px);}
+
 /* LEDGER */
 .ledger-wrap{background:var(--card);border-radius:15px;border:1px solid var(--border);overflow:hidden;margin-bottom:14px;}
 .ledger-hdr{background:var(--navy);color:#fff;}
@@ -167,10 +197,58 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </div>
   </div>
   <div class="tabs">
+    <div class="tab" onclick="switchTab('dash')">🏠 Home</div>
     <div class="tab active" onclick="switchTab('dsm')">📥 DSM Entry</div>
     <div class="tab" onclick="switchTab('recv')">💰 Received</div>
     <div class="tab" onclick="switchTab('report')">📊 Report</div>
     <div class="tab" onclick="switchTab('ledger')">📒 Ledger</div>
+  </div>
+</div>
+
+<!-- ═══ DASHBOARD ═══ -->
+<div class="page" id="page-dash">
+  <!-- Pending Hero -->
+  <div class="dash-hero">
+    <div class="dash-pending-lbl">💳 Pending Balance</div>
+    <div class="dash-pending-amt" id="dash-pending">₹0</div>
+    <div class="dash-pending-sub" id="dash-pending-sub">0 unsettled batches</div>
+  </div>
+  <!-- Stats Grid -->
+  <div class="dash-grid">
+    <div class="dash-card blue">
+      <div class="dash-card-val" id="dash-today-total">₹0</div>
+      <div class="dash-card-lbl">Today's Batches</div>
+    </div>
+    <div class="dash-card red">
+      <div class="dash-card-val" id="dash-unsettled-count">0</div>
+      <div class="dash-card-lbl">Unsettled Batches</div>
+    </div>
+    <div class="dash-card green">
+      <div class="dash-card-val" id="dash-total-recv">₹0</div>
+      <div class="dash-card-lbl">Total Received</div>
+    </div>
+    <div class="dash-card orange">
+      <div class="dash-card-val" id="dash-total-batches">₹0</div>
+      <div class="dash-card-lbl">Total Batches</div>
+    </div>
+  </div>
+  <!-- FY Info -->
+  <div style="background:linear-gradient(135deg,#142952,#0B1E3D);border-radius:13px;padding:12px 15px;margin-bottom:13px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <div style="font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:2px;">Financial Year</div>
+      <div id="dash-fy" style="font-size:14px;font-weight:800;color:#F59E0B;font-family:'Roboto Mono',monospace;">FY 2026-27</div>
+    </div>
+    <button onclick="showFYSwitcher()" style="background:rgba(245,158,11,.2);border:1.5px solid rgba(245,158,11,.4);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;color:#F59E0B;cursor:pointer;">🗓 Switch FY</button>
+  </div>
+  <!-- Pending Batches -->
+  <div class="dash-recent">
+    <div class="dash-recent-hdr">🔴 Unsettled Batches</div>
+    <div id="dash-pending-list"><div class="empty"><div class="ico">✅</div><p>All settled!</p></div></div>
+  </div>
+  <!-- Quick Actions -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:13px;">
+    <button class="btn btn-primary" onclick="switchTab('dsm')" style="padding:14px;">📥 New Entry</button>
+    <button class="btn btn-green" onclick="switchTab('recv')" style="padding:14px;">💰 Received</button>
   </div>
 </div>
 
@@ -252,6 +330,11 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <input type="date" id="new-holiday" style="flex:1;">
       <button class="btn btn-sm btn-accent" onclick="addHoliday()">+ Add</button>
     </div>
+  </div>
+  <!-- Search -->
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="dsm-search" placeholder="Search batch, amount, TID..." oninput="filterDSM(this.value)">
   </div>
   <div class="sh"><div class="sh-title">Today's Entries</div><div class="sh-count" id="today-count">0 transactions</div></div>
   <div id="dsm-today"></div>
@@ -469,6 +552,7 @@ async function loadFromSheet(){
 
     setSyncStatus('ok');
     updateTopbar(); updateFYBanner(); renderTIDs(); autoFillBatch(); refreshDSM();
+    switchTab('dash'); // start on dashboard
   } catch(e){
     setSyncStatus('err');
     toast('Could not connect to Google Sheets — working offline','err');
@@ -574,10 +658,11 @@ let curTab='dsm';
 function switchTab(tab){
   curTab=tab;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['dsm','recv','report','ledger'][i]===tab));
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['dash','dsm','recv','report','ledger'][i]===tab));
   document.getElementById('page-'+(tab==='companies'?'companies':tab)).classList.add('active');
   if(tab==='companies'){renderCompanies();return;}
   if(!db.activeCompanyId){switchTab('companies');return;}
+  if(tab==='dash'){refreshDashboard();return;}
   if(tab==='recv')refreshRecv();
   if(tab==='report'){populateRepTid();refreshReport();}
   if(tab==='ledger'){initLedgerTab();}
@@ -833,8 +918,18 @@ async function saveEditTxn(id){
 function refreshDSM(){
   const today=todayStr();
   const fyTxns=coFYTransactions();
-  const todayT=fyTxns.filter(t=>t.date===today).reverse();
-  const recentT=fyTxns.filter(t=>t.date!==today).reverse().slice(0,40);
+  const q=_searchQuery||'';
+
+  function matchSearch(t){
+    if(!q) return true;
+    return String(t.batch).includes(q) ||
+           t.tid.toLowerCase().includes(q) ||
+           String(t.amount).includes(q) ||
+           fmtAmt(t.amount).includes(q);
+  }
+
+  const todayT=fyTxns.filter(t=>t.date===today&&matchSearch(t)).reverse();
+  const recentT=fyTxns.filter(t=>t.date!==today&&matchSearch(t)).reverse().slice(0,40);
   document.getElementById('today-count').textContent=`${todayT.length} transaction${todayT.length!==1?'s':''}`;
   const tl=document.getElementById('dsm-today');
   tl.innerHTML=todayT.length===0?'<div class="empty"><div class="ico">📋</div><p>No entries yet for today</p></div>':todayT.map(t=>eHTML(t,true)).join('');
@@ -843,6 +938,13 @@ function refreshDSM(){
   if(!recentT.length){rl.innerHTML='';return;}
   const g={};recentT.forEach(t=>{if(!g[t.date])g[t.date]=[];g[t.date].push(t);});
   rl.innerHTML=Object.entries(g).map(([d,es])=>`<div class="dg-header">📅 ${fmtDate(d)}</div>`+es.map(t=>eHTML(t,false)).join('')).join('');
+  // Init swipe on all entry items
+  document.querySelectorAll('.entry-item').forEach(el=>{
+    const id=el.id.replace('ei-','');
+    if(id) initSwipe(el,id);
+  });
+  // Also refresh dashboard if on it
+  if(curTab==='dash') refreshDashboard();
 }
 function fmtTimestamp(iso){
   if(!iso) return '';
@@ -853,15 +955,18 @@ function fmtTimestamp(iso){
 }
 function eHTML(t,showDel){
   const ts=t.createdAt?fmtTimestamp(t.createdAt):'';
-  return`<div class="entry-item">
-    <div class="entry-top">
-      <div><div class="e-tid">${t.tid}</div><div class="e-meta">📅 ${fmtDate(t.date)}${ts?' · 🕐 '+ts:''}</div></div>
-      <div><div class="e-amt">${fmtAmt(t.amount)}</div><div class="e-batch">Batch #${t.batch}</div></div>
+  return`<div class="entry-item" id="ei-${t.id}">
+    <div class="entry-inner" style="padding:13px 15px;border-radius:12px;border:1px solid var(--border);">
+      <div class="entry-top">
+        <div><div class="e-tid">${t.tid}</div><div class="e-meta">📅 ${fmtDate(t.date)}${ts?' · 🕐 '+ts:''}</div></div>
+        <div><div class="e-amt">${fmtAmt(t.amount)}</div><div class="e-batch">Batch #${t.batch}</div></div>
+      </div>
+      <div class="entry-actions">
+        <button class="btn btn-sm btn-edit" onclick="editTxn('${t.id}')">✏️ Edit</button>
+        ${showDel?`<button class="btn btn-sm btn-del" onclick="delTxn('${t.id}')">✕ Delete</button>`:''}
+      </div>
     </div>
-    <div class="entry-actions">
-      <button class="btn btn-sm btn-edit" onclick="editTxn('${t.id}')">✏️ Edit</button>
-      ${showDel?`<button class="btn btn-sm btn-del" onclick="delTxn('${t.id}')">✕ Delete</button>`:''}
-    </div>
+    <div class="swipe-del-btn" onclick="delTxn('${t.id}')">🗑<br>Delete</div>
   </div>`;
 }
 
@@ -1238,6 +1343,7 @@ async function syncOverrides(){
       refreshRecv();
       if(curTab==='report') refreshReport();
       if(curTab==='ledger' && document.getElementById('ldg-output').style.display!=='none') generateLedger();
+      autoClearOverrides();
       // Update OB input if ledger tab is open
       if(curTab==='ledger'){
         const obInput=document.getElementById('ob-input');
@@ -1777,9 +1883,186 @@ async function runDebug(){
   }
 }
 
+
+// ── DASHBOARD ────────────────────────────────────────────────────────────────
+function refreshDashboard(){
+  const m=computeMatch();
+  const today=todayStr();
+  const todayTxns=coFYTransactions().filter(t=>t.date===today);
+  const todayTotal=todayTxns.reduce((s,t)=>s+t.amount,0);
+
+  // Pending hero
+  document.getElementById('dash-pending').textContent=fmtAmt(m.totalPending);
+  document.getElementById('dash-pending-sub').textContent=`${m.pendingCount} unsettled batch${m.pendingCount!==1?'es':''}`;
+
+  // Stats grid
+  document.getElementById('dash-today-total').textContent=fmtAmt(todayTotal);
+  document.getElementById('dash-unsettled-count').textContent=m.pendingCount;
+  document.getElementById('dash-total-recv').textContent=fmtAmt(m.totalReceived);
+  document.getElementById('dash-total-batches').textContent=fmtAmt(m.totalBatches);
+
+  // FY label
+  document.getElementById('dash-fy').textContent=fmtFY(getCurrentFY());
+
+  // Pending batches list
+  const pl=document.getElementById('dash-pending-list');
+  const pending=m.batches.filter(b=>b.status!=='settled');
+  if(!pending.length){
+    pl.innerHTML='<div class="empty" style="padding:20px;"><div class="ico">✅</div><p>All batches settled!</p></div>';
+    return;
+  }
+  pl.innerHTML=pending.map(b=>`
+    <div class="dash-batch-row">
+      <div style="display:flex;align-items:center;flex:1;">
+        <div class="dash-status-dot" style="background:${b.status==='partial'?'#F97316':'#EF4444'};"></div>
+        <div>
+          <div style="font-size:13px;font-weight:700;font-family:'Roboto Mono',monospace;">Batch #${b.batch}</div>
+          <div style="font-size:11px;color:var(--muted);">${b.tid} · ${fmtDate(b.date)}</div>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:14px;font-weight:700;font-family:'Roboto Mono',monospace;color:var(--red);">${fmtAmt(b.amount)}</div>
+        <div style="font-size:10px;color:var(--muted);">${b.status==='partial'?'⚠️ Partial':'❌ Pending'}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── AUTO-CLEAR OVERRIDES ──────────────────────────────────────────────────────
+// After computeMatch, if a batch is naturally settled but has a 'pending' override → clear it
+async function autoClearOverrides(){
+  const ov=getOverrides();
+  const m=computeMatch();
+  const toClear=[];
+  m.batches.forEach(b=>{
+    // If override says pending but algorithm says settled → clear override
+    if(ov[b.id]==='pending' && b.status==='settled'){
+      toClear.push(b.id);
+    }
+  });
+  if(!toClear.length) return;
+  for(const id of toClear){
+    delete db.overrides[id];
+    await apiPost({action:'deleteOverride', txnId:id, fy:getCurrentFY()});
+  }
+  if(toClear.length>0){
+    toast(`Auto-cleared ${toClear.length} resolved override${toClear.length>1?'s':''} ✓`);
+    refreshRecv();
+    if(curTab==='report') refreshReport();
+    if(curTab==='dash') refreshDashboard();
+  }
+}
+
+// ── SEARCH / FILTER DSM ───────────────────────────────────────────────────────
+let _searchQuery='';
+function filterDSM(q){
+  _searchQuery=q.toLowerCase().trim();
+  refreshDSM();
+}
+
+// ── SWIPE TO DELETE ──────────────────────────────────────────────────────────
+let _swipeStartX=0, _swipeEl=null;
+function initSwipe(el, id){
+  el.addEventListener('touchstart', e=>{
+    _swipeStartX=e.touches[0].clientX;
+    _swipeEl=el;
+  },{passive:true});
+  el.addEventListener('touchend', e=>{
+    const dx=_swipeStartX-e.changedTouches[0].clientX;
+    if(dx>60){
+      // Swipe left — show delete
+      document.querySelectorAll('.entry-item.swiped').forEach(x=>{if(x!==el)x.classList.remove('swiped');});
+      el.classList.add('swiped');
+    } else if(dx<-30){
+      el.classList.remove('swiped');
+    }
+  },{passive:true});
+}
+
+// ── DAILY LEDGER DOWNLOAD AT 12PM ────────────────────────────────────────────
+let _ledgerTimerSet=false;
+function scheduleDailyLedger(){
+  if(_ledgerTimerSet) return;
+  _ledgerTimerSet=true;
+  function msUntilNoon(){
+    const now=new Date();
+    const noon=new Date();
+    noon.setHours(12,0,0,0);
+    if(now>=noon) noon.setDate(noon.getDate()+1); // next noon
+    return noon-now;
+  }
+  function triggerLedger(){
+    autoDownloadLedger();
+    // Schedule next day
+    setTimeout(triggerLedger, msUntilNoon());
+  }
+  setTimeout(triggerLedger, msUntilNoon());
+}
+
+function autoDownloadLedger(){
+  // Build ledger data for current FY
+  const fy=getCurrentFY();
+  const fyS=fyStart(fy), fyE=fyEnd(fy);
+  const txns=co().transactions.filter(t=>t.date>=fyS&&t.date<=fyE);
+  const recv=co().received.filter(r=>r.date>=fyS&&r.date<=fyE);
+  if(!txns.length&&!recv.length) return; // nothing to download
+  const ob=getLedgerOB();
+  const totalDr=txns.reduce((s,t)=>s+t.amount,0);
+  const totalCr=recv.reduce((s,r)=>s+r.amount,0);
+  const m=computeMatch();
+  const inRange=new Set(txns.map(t=>t.id));
+  const pending=m.batches.filter(b=>inRange.has(b.id)&&b.status!=='settled').reduce((s,b)=>s+b.amount,0);
+
+  const combined=[
+    ...txns.map(t=>({...t,type:'debit',sortKey:t.date+'_'+String(t.batch).padStart(6,'0')})),
+    ...recv.map(r=>({...r,type:'credit',sortKey:r.date+'_ZZ'}))
+  ].sort((a,b)=>a.sortKey.localeCompare(b.sortKey));
+
+  let bal=ob;
+  let rows=`<tr style="background:#EFF6FF;"><td colspan="4" style="font-weight:800;">OPENING BALANCE</td><td></td><td></td><td style="font-family:monospace;font-weight:700;color:#1B5FBF;">₹${ob.toLocaleString('en-IN',{minimumFractionDigits:2})}</td></tr>`;
+  combined.forEach(e=>{
+    const isD=e.type==='debit';
+    if(isD) bal-=e.amount; else bal+=e.amount;
+    const bc=bal<0?'#EF4444':bal===0?'#888':'#0B1E3D';
+    const balLabel=`₹${Math.abs(bal).toLocaleString('en-IN',{minimumFractionDigits:2})}${bal<0?' Dr':bal>0?' Cr':''}`;
+    rows+=`<tr><td>${fmtDate(e.date)}</td><td style="font-family:monospace;font-weight:700;">${e.batch?'#'+e.batch:'—'}</td><td style="font-weight:600;">${isD?(e.tid||'Batch'):'Credit Received'}</td><td style="font-size:11px;color:#7A90B0;">${e.note||''}</td><td style="font-family:monospace;color:#EF4444;">${isD?'₹'+e.amount.toLocaleString('en-IN',{minimumFractionDigits:2}):''}</td><td style="font-family:monospace;color:#10B981;">${!isD?'₹'+e.amount.toLocaleString('en-IN',{minimumFractionDigits:2}):''}</td><td style="font-family:monospace;color:${bc};">${balLabel}</td></tr>`;
+  });
+  rows+=`<tr style="background:#0B1E3D;color:#fff;font-weight:800;"><td colspan="6">CLOSING BALANCE (Unsettled)</td><td style="font-family:monospace;color:#FCA5A5;">₹${pending.toLocaleString('en-IN',{minimumFractionDigits:2})} Dr</td></tr>`;
+
+  const html=`<!DOCTYPE html><html><head><title>Card EPOS Checker — Daily Ledger ${todayStr()}</title>
+  <style>body{font-family:Arial,sans-serif;font-size:12px;padding:20px;}h1{font-size:16px;margin-bottom:4px;}
+  .meta{color:#7A90B0;font-size:11px;margin-bottom:12px;}
+  .sum{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .sbox{background:#F8FAFD;border:1px solid #DDE5F0;border-radius:8px;padding:8px 12px;text-align:center;}
+  .sval{font-size:13px;font-weight:700;font-family:monospace;}.slbl{font-size:9px;color:#7A90B0;text-transform:uppercase;}
+  table{width:100%;border-collapse:collapse;}th{background:#0B1E3D;color:#fff;padding:7px;text-align:left;font-size:10px;}
+  td{padding:7px;border-bottom:1px solid #DDE5F0;font-size:11px;}tr:nth-child(even) td{background:#F8FAFD;}</style></head>
+  <body><h1>🏦 Card EPOS Checker — Daily Ledger</h1>
+  <div class="meta">Generated: ${new Date().toLocaleString('en-IN')} · FY ${fmtFY(fy)}</div>
+  <div class="sum">
+    <div class="sbox"><div class="sval" style="color:#1B5FBF;">₹${ob.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Opening Bal</div></div>
+    <div class="sbox"><div class="sval" style="color:#EF4444;">₹${totalDr.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Total Debit</div></div>
+    <div class="sbox"><div class="sval" style="color:#10B981;">₹${totalCr.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Total Credit</div></div>
+    <div class="sbox"><div class="sval" style="color:#EF4444;">₹${pending.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Pending</div></div>
+  </div>
+  <table><thead><tr><th>Date</th><th>Batch</th><th>TID/Particulars</th><th>Note</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead>
+  <tbody>${rows}</tbody></table></body></html>`;
+
+  // Download as HTML file (auto, no dialog)
+  const blob=new Blob([html],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`CardEPOS_Ledger_${todayStr()}.html`;
+  a.style.display='none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);document.body.removeChild(a);},1000);
+  console.log('📊 Daily ledger downloaded at noon');
+}
+
 // ── INIT ───────────────────────────────────────────────────────────────────
 // Load everything from Google Sheets on startup
-loadFromSheet().then(()=>renderHolidays());
+loadFromSheet().then(()=>{ renderHolidays(); scheduleDailyLedger(); setTimeout(autoClearOverrides,3000); });
 
 // Auto-sync overrides when user returns to the tab/app
 document.addEventListener('visibilitychange', ()=>{
