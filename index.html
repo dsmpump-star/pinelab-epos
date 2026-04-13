@@ -164,7 +164,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .ledger-row.subtotal{background:#F0F4FA!important;font-weight:700;}
 .ledger-row.total-row{background:var(--navy2)!important;color:#fff!important;font-weight:700;}
 .ledger-row.closing{background:var(--navy)!important;color:#fff!important;font-weight:800;}
-.ledger-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.ledger-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:13px;border:1px solid var(--border);}
+.ledger-scroll::-webkit-scrollbar{height:4px;}
+.ledger-scroll::-webkit-scrollbar-thumb{background:var(--navy2);border-radius:2px;}
 .lr-date{font-size:11px;color:var(--muted);white-space:nowrap;}
 .lr-batch{font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;color:var(--navy);}
 .lr-debit{font-family:'Roboto Mono',monospace;font-weight:700;color:var(--red);text-align:right;}
@@ -449,10 +451,14 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div class="form-row"><label>From Date</label><input type="date" id="ldg-from"></div>
     <div class="form-row"><label>To Date</label><input type="date" id="ldg-to"></div>
     <div class="form-row"><label>Filter by TID</label><select id="ldg-tid"><option value="ALL">All TIDs</option></select></div>
-    <button class="btn btn-primary" onclick="generateLedger()" style="margin-top:4px;">📒 Generate Ledger</button>
+    <button class="btn btn-primary" onclick="generateLedger()" style="margin-top:4px;width:100%;">📒 Generate Ledger</button>
   </div>
-  <!-- Output -->
-  <div style="display:flex;gap:8px;margin-bottom:13px;">
+  <!-- Action Buttons — always visible -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:13px;">
+    <button onclick="generateMonthSummary()" style="background:#10B981;color:#fff;border:none;border-radius:11px;padding:13px 8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">📅 Month<br>Summary</button>
+    <button onclick="exportExcel(document.getElementById('ldg-from').value, document.getElementById('ldg-to').value)" style="background:#1D6F42;color:#fff;border:none;border-radius:11px;padding:13px 8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">📊 Export<br>Excel</button>
+  </div>
+  <!-- Backup/Restore -->
     <button class="btn btn-sm" onclick="backupData()" style="flex:1;background:#6B7280;color:#fff;">⬇ Backup</button>
     <button class="btn btn-sm" onclick="document.getElementById('restore-input').click()" style="flex:1;background:#6B7280;color:#fff;">⬆ Restore</button>
     <input type="file" id="restore-input" accept=".json" style="display:none;" onchange="restoreData(this)">
@@ -1222,24 +1228,86 @@ function refreshReport(){
 }
 
 // ── EXPORT EXCEL ───────────────────────────────────────────────────────────
-function exportExcel(){
-  const txns=getFilteredTxns();if(!txns.length)return toast('No data','err');
-  const m=computeMatch();const mm={};m.batches.forEach(b=>{mm[b.id]=b;});
-  const cname=coInfo().name||'Company';
-  const bData=txns.sort((a,b)=>a.date.localeCompare(b.date)||(parseInt(a.batch)-parseInt(b.batch))).map(t=>{
-    const mb=mm[t.id]||{status:'pending'};
-    return{'Date':fmtDate(t.date),'TID':t.tid,'Batch #':'#'+t.batch,'Amount (₹)':t.amount,'Status':mb.status==='settled'?'🟢 Settled':mb.status==='partial'?'🟡 Partial':'🔴 Pending'};
+async function exportExcel(fromDate, toDate){
+  // Load SheetJS if needed
+  if(typeof XLSX==='undefined'){
+    await new Promise((res,rej)=>{
+      const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload=res; s.onerror=rej;
+      document.head.appendChild(s);
+    });
+  }
+  const fy=getCurrentFY();
+  const from=fromDate||fyStart(fy);
+  const to=toDate||fyEnd(fy);
+  const txns=co().transactions.filter(t=>t.date>=from&&t.date<=to)
+    .sort((a,b)=>a.date.localeCompare(b.date)||(parseInt(a.batch)-parseInt(b.batch)));
+  const recv=co().received.filter(r=>r.date>=from&&r.date<=to)
+    .sort((a,b)=>a.date.localeCompare(b.date));
+  if(!txns.length&&!recv.length)return toast('No data in selected range','err');
+
+  const m=computeMatch();
+  const statusMap={};m.batches.forEach(b=>{statusMap[b.id]=b.status;});
+  const ob=getLedgerOB();
+  const cname=coInfo().name||'Card EPOS';
+
+  // Sheet 1: Ledger
+  const combined=[
+    ...txns.map(t=>({date:t.date,batch:'#'+t.batch,particulars:t.tid,note:'',debit:t.amount,credit:'',type:'D'})),
+    ...recv.map(r=>({date:r.date,batch:'—',particulars:'Credit Received',note:r.note||'',debit:'',credit:r.amount,type:'C'}))
+  ].sort((a,b)=>a.date.localeCompare(b.date));
+
+  let bal=ob;
+  const ledRows=[['Date','Batch #','TID / Particulars','Note','Debit (Dr)','Credit (Cr)','Balance']];
+  ledRows.push(['OPENING BALANCE','','','','','',ob]);
+  combined.forEach(r=>{
+    if(r.type==='D') bal-=r.debit; else bal+=r.credit;
+    ledRows.push([r.date,r.batch,r.particulars,r.note,r.debit||'',r.credit||'',Math.abs(bal).toFixed(2)+(bal<0?' Dr':' Cr')]);
   });
-  const rs=[...coFYReceived()].sort((a,b)=>a.date.localeCompare(b.date));
-  let run=0;
-  const rData=rs.map(r=>{run+=r.amount;return{'Credit Date':fmtDate(r.date),'Amount Received (₹)':r.amount,'Note':r.note||'','Running Total (₹)':run,'Balance vs Batches (₹)':run-m.totalBatches};});
+  ledRows.push(['CLOSING BALANCE (Unsettled)','','','','','',m.totalPending.toFixed(2)+' Dr']);
+
+  // Sheet 2: Batch Status
+  const batchRows=[['Date','TID','Batch #','Amount (₹)','Status','Next Settlement Day']];
+  txns.forEach(t=>{
+    const st=statusMap[t.id]||'pending';
+    batchRows.push([t.date,t.tid,'#'+t.batch,t.amount,st==='settled'?'🟢 Settled':st==='partial'?'🟡 Partial':'🔴 Pending',nextBusinessDay(t.date)]);
+  });
+
+  // Sheet 3: Received
+  const recvRows=[['Date','Amount (₹)','Note','Saved At']];
+  recv.forEach(r=>recvRows.push([r.date,r.amount,r.note||'',r.savedAt||'']));
+
+  // Sheet 4: Month Summary
+  const months={};
+  txns.forEach(t=>{
+    const mo=t.date.slice(0,7);
+    if(!months[mo])months[mo]={batchAmt:0,recvAmt:0,pendingAmt:0,count:0};
+    months[mo].batchAmt+=t.amount;months[mo].count++;
+    if(statusMap[t.id]!=='settled')months[mo].pendingAmt+=t.amount;
+  });
+  recv.forEach(r=>{const mo=r.date.slice(0,7);if(months[mo])months[mo].recvAmt+=r.amount;});
+  const monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthRows=[['Month','Batch Total (₹)','Received (₹)','Pending (₹)','Entry Count']];
+  Object.keys(months).sort().forEach(mo=>{
+    const[y,m2]=mo.split('-');
+    monthRows.push([`${monthNames[parseInt(m2)-1]} ${y}`,months[mo].batchAmt,months[mo].recvAmt,months[mo].pendingAmt,months[mo].count]);
+  });
+
   const wb=XLSX.utils.book_new();
-  const ws1=XLSX.utils.json_to_sheet(bData);ws1['!cols']=[14,18,10,14,14].map(w=>({wch:w}));
-  XLSX.utils.book_append_sheet(wb,ws1,'Batch Transactions');
-  const ws2=XLSX.utils.json_to_sheet(rData);ws2['!cols']=[14,18,20,16,18].map(w=>({wch:w}));
-  XLSX.utils.book_append_sheet(wb,ws2,'Received Credits');
-  XLSX.writeFile(wb,`${cname}_EPOS_${todayStr()}.xlsx`);
-  toast('Excel downloaded!');
+  const ws1=XLSX.utils.aoa_to_sheet(ledRows);
+  ws1['!cols']=[{wch:12},{wch:10},{wch:20},{wch:8},{wch:14},{wch:14},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,ws1,'Ledger');
+  const ws2=XLSX.utils.aoa_to_sheet(batchRows);
+  ws2['!cols']=[{wch:12},{wch:14},{wch:10},{wch:14},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws2,'Batch Status');
+  const ws3=XLSX.utils.aoa_to_sheet(recvRows);
+  XLSX.utils.book_append_sheet(wb,ws3,'Received');
+  const ws4=XLSX.utils.aoa_to_sheet(monthRows);
+  XLSX.utils.book_append_sheet(wb,ws4,'Month Summary');
+
+  XLSX.writeFile(wb,`${cname}_Ledger_${from}_to_${to}.xlsx`);
+  toast('Excel downloaded ✅ — share via WhatsApp Files');
 }
 
 // ── EXPORT PDF ─────────────────────────────────────────────────────────────
@@ -2228,7 +2296,7 @@ function generateMonthSummary(){
   toast('Month summary opened');
 }
 
-// ── ENTRY NOTIFICATIONS ───────────────────────────────────────────────────────
+// ── ENTRY NOTIFICATIONS + DAILY REMINDER ─────────────────────────────────────
 function sendEntryNotification(type,amount,detail){
   if(Notification.permission==='granted'){
     new Notification('Card EPOS Checker',{
@@ -2238,7 +2306,28 @@ function sendEntryNotification(type,amount,detail){
   }
 }
 
-loadFromSheet().then(()=>{ renderHolidays(); scheduleDailyLedger(); setTimeout(autoClearOverrides,3000); requestNotifPermission(); });
+function scheduleDailyNotification(){
+  function msUntil9am(){
+    const now=new Date(), next=new Date();
+    next.setHours(9,0,0,0);
+    if(now>=next) next.setDate(next.getDate()+1);
+    return next-now;
+  }
+  function fireDaily(){
+    if(Notification.permission==='granted'){
+      const m=computeMatch();
+      new Notification('Card EPOS Checker — Daily Summary',{
+        body:`Pending: ${fmtAmt(m.totalPending)} · ${m.pendingCount} unsettled batch${m.pendingCount!==1?'es':''}`,
+        icon:'/pinelab-epos/icon-192.png',
+        tag:'epos-daily'
+      });
+    }
+    setTimeout(fireDaily, msUntil9am());
+  }
+  setTimeout(fireDaily, msUntil9am());
+}
+
+loadFromSheet().then(()=>{ renderHolidays(); scheduleDailyLedger(); setTimeout(autoClearOverrides,3000); requestNotifPermission(); scheduleDailyNotification(); });
 
 // Auto-sync overrides when user returns to the tab/app
 document.addEventListener('visibilitychange', ()=>{
