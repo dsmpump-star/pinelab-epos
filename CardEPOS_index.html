@@ -1,0 +1,2339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Card EPOS Checker</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0B1E3D">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="EPOS">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-startup-image" href="icon-512.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Roboto+Mono:wght@400;500;600;700&display=swap');
+:root{--navy:#0B1E3D;--navy2:#142952;--blue:#1B5FBF;--accent:#F59E0B;--green:#10B981;--red:#EF4444;--orange:#F97316;--bg:#F0F4FA;--card:#fff;--border:#DDE5F0;--text:#0B1E3D;--muted:#7A90B0;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;max-width:480px;margin:0 auto;}
+.topbar{background:linear-gradient(135deg,var(--navy),var(--navy2));padding:14px 16px 11px;position:sticky;top:0;z-index:100;box-shadow:0 4px 20px rgba(11,30,61,.3);}
+.brand-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;}
+.brand{display:flex;align-items:center;gap:9px;}
+.brand-icon{width:34px;height:34px;border-radius:9px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:var(--navy);flex-shrink:0;transition:all .3s;}
+.brand-texts .brand-name{font-size:15px;font-weight:700;color:#fff;line-height:1.2;}
+.brand-texts .brand-sub{font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px;}
+.co-switch-btn{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.22);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:700;color:#fff;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.co-switch-btn:active{background:rgba(255,255,255,.22);}
+.tabs{display:flex;gap:3px;background:rgba(255,255,255,.09);border-radius:11px;padding:3px;}
+.tab{flex:1;text-align:center;padding:8px 4px;border-radius:8px;font-size:11px;font-weight:700;color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;text-transform:uppercase;}
+.tab.active{background:var(--accent);color:var(--navy);}
+.page{display:none;padding:16px 15px 110px;animation:fi .22s ease;}
+.page.active{display:block;}
+@keyframes fi{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+.card{background:var(--card);border-radius:16px;box-shadow:0 4px 20px rgba(11,30,61,.08);padding:18px;margin-bottom:13px;border:1px solid var(--border);}
+.card-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:15px;display:flex;align-items:center;gap:6px;}
+label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px;}
+select,input[type=date],input[type=number],input[type=text],input[type=password]{width:100%;padding:12px 14px;border-radius:11px;border:1.5px solid var(--border);font-family:'DM Sans',sans-serif;font-size:15px;color:var(--text);background:#F8FAFD;outline:none;transition:border .2s,box-shadow .2s;-webkit-appearance:none;appearance:none;}
+select:focus,input:focus{border-color:var(--blue);background:#fff;box-shadow:0 0 0 3px rgba(27,95,191,.1);}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237A90B0' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;padding-right:36px;}
+.form-row{margin-bottom:14px;}.form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:14px;}
+.btn{width:100%;padding:14px;border-radius:11px;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .17s;}
+.btn-primary{background:linear-gradient(135deg,var(--blue),#0D4AA0);color:#fff;}
+.btn-accent{background:linear-gradient(135deg,var(--accent),#FBBF24);color:var(--navy);}
+.btn-green{background:linear-gradient(135deg,var(--green),#059669);color:#fff;}
+.btn-outline{background:transparent;border:1.5px solid var(--border);color:var(--text);}
+.btn:active{transform:scale(.97);opacity:.9;}
+.btn-sm{padding:7px 12px;font-size:12px;width:auto;border-radius:8px;}
+.btn-edit{background:#EFF6FF;color:var(--blue);border:1px solid #BFDBFE;}
+.btn-del{background:#FEF2F2;color:var(--red);border:1px solid #FECACA;}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+.bg{background:#DCFCE7;color:#15803D;}.br{background:#FEE2E2;color:#B91C1C;}.bo{background:#FEF3C7;color:#92400E;}.bb{background:#DBEAFE;color:#1D4ED8;}.bk{background:#F1F5F9;color:var(--muted);}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:13px;}
+.tile{background:var(--card);border-radius:13px;padding:14px;text-align:center;border:1px solid var(--border);box-shadow:0 2px 8px rgba(11,30,61,.06);}
+.tile-val{font-size:16px;font-weight:700;font-family:'Roboto Mono',monospace;}
+.tile-lbl{font-size:10px;color:var(--muted);margin-top:3px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+.t-blue .tile-val{color:var(--blue);}.t-green .tile-val{color:var(--green);}.t-red .tile-val{color:var(--red);}.t-orange .tile-val{color:var(--orange);}
+.entry-item{background:var(--card);border-radius:12px;padding:13px 15px;margin-bottom:9px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(11,30,61,.05);}
+.entry-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:9px;}
+.e-tid{font-size:13px;font-weight:700;color:var(--blue);font-family:'Roboto Mono',monospace;margin-bottom:2px;}
+.e-meta{font-size:12px;color:var(--muted);}
+.e-amt{font-size:16px;font-weight:700;font-family:'Roboto Mono',monospace;text-align:right;}
+.e-batch{font-size:11px;color:var(--muted);text-align:right;margin-top:2px;}
+.entry-actions{display:flex;gap:7px;}
+.recv-entry{background:var(--card);border-radius:12px;padding:13px 15px;margin-bottom:9px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(11,30,61,.05);}
+.recv-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;}
+.recv-label{font-size:16px;font-weight:700;font-family:'Roboto Mono',monospace;}
+.recv-sub{font-size:11px;color:var(--muted);margin-bottom:8px;}
+.recv-actions{display:flex;gap:7px;}
+.match-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:9px;display:flex;align-items:center;gap:6px;}
+.batch-row{border-radius:11px;padding:12px 14px;margin-bottom:8px;border:1.5px solid;display:flex;justify-content:space-between;align-items:flex-start;}
+.batch-row.settled{background:#F0FDF4;border-color:#86EFAC;}
+.batch-row.pending{background:#FFF7ED;border-color:#FED7AA;}
+.batch-row.partial{background:#FEF2F2;border-color:#FCA5A5;}
+.br-num{font-size:17px;font-weight:800;font-family:'Roboto Mono',monospace;line-height:1;margin-bottom:3px;}
+.batch-row.settled .br-num{color:#15803D;}.batch-row.pending .br-num{color:var(--orange);}.batch-row.partial .br-num{color:var(--red);}
+.br-tid{font-size:12px;font-weight:700;font-family:'Roboto Mono',monospace;color:var(--navy);}
+.br-meta{font-size:11px;color:var(--muted);margin-top:2px;}
+.br-right{text-align:right;min-width:100px;}
+.br-amt{font-size:15px;font-weight:700;font-family:'Roboto Mono',monospace;}
+.batch-row.settled .br-amt{color:#15803D;}.batch-row.pending .br-amt{color:var(--orange);}.batch-row.partial .br-amt{color:var(--red);}
+.br-status{font-size:11px;margin-top:3px;}
+.tbl-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border);}
+.tbl{width:100%;border-collapse:collapse;font-size:12px;min-width:480px;}
+.tbl th{background:var(--navy);color:#fff;padding:10px 11px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;}
+.tbl td{padding:10px 11px;border-bottom:1px solid var(--border);}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:nth-child(even) td{background:#F8FAFD;}
+.tbl tfoot td{background:var(--navy2)!important;color:#fff!important;font-weight:700;}
+.filter-bar{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:13px;}
+.chip{padding:6px 13px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid var(--border);background:var(--card);cursor:pointer;transition:all .15s;color:var(--muted);}
+.chip.active{background:var(--navy);border-color:var(--navy);color:#fff;}
+.tid-tag{display:inline-flex;align-items:center;gap:5px;background:#DBEAFE;color:var(--blue);border-radius:7px;padding:5px 11px;font-size:12px;font-weight:600;margin:3px;font-family:'Roboto Mono',monospace;}
+.tid-tag .rm{cursor:pointer;color:var(--red);font-size:14px;line-height:1;}
+.tid-wrap{display:flex;flex-wrap:wrap;margin-bottom:11px;min-height:36px;}
+.sh{display:flex;justify-content:space-between;align-items:center;margin-bottom:11px;}
+.sh-title{font-size:15px;font-weight:700;}.sh-count{font-size:12px;color:var(--muted);}
+.dg-header{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;padding:7px 3px 5px;margin-top:3px;}
+.toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;padding:11px 22px;border-radius:28px;font-size:13px;font-weight:600;opacity:0;transition:all .3s;z-index:999;white-space:nowrap;box-shadow:0 8px 24px rgba(11,30,61,.35);}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.ok{background:var(--green);}.toast.err{background:var(--red);}
+.divider{height:1px;background:var(--border);margin:14px 0;}
+.empty{text-align:center;padding:32px 20px;color:var(--muted);}
+.empty .ico{font-size:36px;margin-bottom:9px;}.empty p{font-size:14px;}
+.export-row{display:flex;gap:9px;margin-top:13px;}
+.export-row .btn{flex:1;padding:13px;font-size:13px;}
+.big-amt-wrap{position:relative;}
+.big-rupee{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:20px;font-weight:700;color:var(--muted);}
+.big-amt{padding-left:36px!important;font-size:22px!important;font-weight:700!important;font-family:'Roboto Mono',monospace!important;height:60px;}
+.progress-wrap{background:#E5E7EB;border-radius:20px;height:8px;overflow:hidden;margin:8px 0;}
+.progress-bar{height:100%;border-radius:20px;transition:width .5s ease;}
+.rep-section{margin-bottom:18px;}
+.rep-section-hdr{font-size:13px;font-weight:700;color:#fff;padding:10px 13px;background:var(--navy2);border-radius:10px 10px 0 0;}
+.rep-section .tbl-wrap{border-radius:0 0 12px 12px;border-top:none;}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(11,30,61,.55);z-index:200;align-items:flex-end;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:#fff;border-radius:22px 22px 0 0;padding:22px 18px 36px;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;}
+.modal-handle{width:38px;height:4px;background:var(--border);border-radius:4px;margin:0 auto 18px;}
+
+
+/* PULL TO REFRESH */
+.ptr-indicator{position:fixed;top:0;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:8px 20px;border-radius:0 0 12px 12px;font-size:12px;font-weight:700;z-index:999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.2);}
+
+/* DASHBOARD */
+.dash-hero{background:linear-gradient(135deg,var(--navy),#0D3060);border-radius:16px;padding:20px 18px;margin-bottom:13px;color:#fff;}
+.dash-pending-lbl{font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+.dash-pending-amt{font-size:36px;font-weight:800;font-family:'Roboto Mono',monospace;color:#FCA5A5;line-height:1;}
+.dash-pending-sub{font-size:12px;color:rgba(255,255,255,.5);margin-top:4px;}
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:13px;}
+.dash-card{background:var(--card);border-radius:13px;padding:14px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(11,30,61,.06);}
+.dash-card-val{font-size:18px;font-weight:700;font-family:'Roboto Mono',monospace;margin-bottom:3px;}
+.dash-card-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;}
+.dash-card.green .dash-card-val{color:var(--green);}
+.dash-card.orange .dash-card-val{color:#F97316;}
+.dash-card.blue .dash-card-val{color:var(--blue);}
+.dash-card.red .dash-card-val{color:var(--red);}
+.dash-recent{background:var(--card);border-radius:13px;border:1px solid var(--border);overflow:hidden;margin-bottom:13px;}
+.dash-recent-hdr{background:var(--navy2);color:#fff;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.dash-batch-row{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:1px solid var(--border);}
+.dash-batch-row:last-child{border-bottom:none;}
+.dash-status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-right:8px;}
+/* SEARCH */
+.search-wrap{position:relative;margin-bottom:13px;}
+.search-wrap input{padding-left:36px!important;}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px;pointer-events:none;}
+/* SWIPE DELETE */
+.entry-item{position:relative;overflow:hidden;}
+.swipe-del-btn{position:absolute;right:0;top:0;bottom:0;width:70px;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;cursor:pointer;transform:translateX(100%);transition:transform .2s;}
+.entry-item.swiped .swipe-del-btn{transform:translateX(0);}
+.entry-inner{transition:transform .2s;background:var(--card);}
+.entry-item.swiped .entry-inner{transform:translateX(-70px);}
+
+/* LEDGER */
+.ledger-wrap{background:var(--card);border-radius:15px;border:1px solid var(--border);overflow:hidden;margin-bottom:14px;}
+.ledger-hdr{background:var(--navy);color:#fff;}
+.ledger-hdr-row{display:grid;grid-template-columns:72px 58px 1fr 88px 88px 90px;padding:10px 10px;gap:4px;min-width:480px;}
+.ledger-hdr-row span{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:rgba(255,255,255,.7);}
+.ledger-row{display:grid;grid-template-columns:72px 58px 1fr 88px 88px 90px;padding:9px 10px;border-bottom:1px solid var(--border);font-size:11px;gap:4px;align-items:center;min-width:480px;}
+.ledger-row:last-child{border-bottom:none;}
+.ledger-row:nth-child(even){background:#F8FAFD;}
+.ledger-row.opening{background:#EFF6FF!important;font-weight:700;}
+.ledger-row.subtotal{background:#F0F4FA!important;font-weight:700;}
+.ledger-row.total-row{background:var(--navy2)!important;color:#fff!important;font-weight:700;}
+.ledger-row.closing{background:var(--navy)!important;color:#fff!important;font-weight:800;}
+.ledger-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:13px;border:1px solid var(--border);}
+.ledger-scroll::-webkit-scrollbar{height:4px;}
+.ledger-scroll::-webkit-scrollbar-thumb{background:var(--navy2);border-radius:2px;}
+.lr-date{font-size:11px;color:var(--muted);white-space:nowrap;}
+.lr-batch{font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;color:var(--navy);}
+.lr-debit{font-family:'Roboto Mono',monospace;font-weight:700;color:var(--red);text-align:right;}
+.lr-credit{font-family:'Roboto Mono',monospace;font-weight:700;color:var(--green);text-align:right;}
+.lr-balance{font-family:'Roboto Mono',monospace;font-weight:700;text-align:right;}
+.ob-strip{background:linear-gradient(135deg,var(--navy),var(--navy2));border-radius:13px;padding:15px 16px;margin-bottom:13px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.ob-strip h3{font-size:13px;font-weight:800;color:#fff;margin-bottom:3px;}
+.ob-strip p{font-size:11px;color:rgba(255,255,255,.55);}
+.ob-strip input{width:130px;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.25);border-radius:10px;padding:9px 12px;font-size:15px;font-weight:700;color:#fff;font-family:'Roboto Mono',monospace;outline:none;text-align:right;}
+.ob-strip input:focus{background:rgba(255,255,255,.2);border-color:var(--accent);}
+/* STATUS OVERRIDE on batch rows */
+.status-sel{font-size:11px;padding:4px 8px;border-radius:7px;border:1.5px solid var(--border);background:#F8FAFD;font-weight:700;cursor:pointer;-webkit-appearance:none;appearance:none;}
+/* Company cards */
+.co-card{background:var(--card);border-radius:14px;padding:15px 16px;margin-bottom:10px;border:2px solid var(--border);display:flex;justify-content:space-between;align-items:center;transition:border .2s;}
+.co-card.active-co{border-color:var(--blue);background:#F0F7FF;}
+.co-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0;margin-right:12px;}
+.co-info{flex:1;}
+.co-name{font-size:15px;font-weight:700;margin-bottom:2px;}
+.co-meta{font-size:11px;color:var(--muted);}
+.co-actions{display:flex;gap:6px;flex-shrink:0;}
+/* Hero banner on companies page */
+.co-hero{background:linear-gradient(135deg,var(--navy),var(--navy2));border-radius:16px;padding:22px 18px;margin-bottom:16px;color:#fff;text-align:center;}
+.co-hero .ico{font-size:36px;margin-bottom:10px;}
+.co-hero h2{font-size:17px;font-weight:800;margin-bottom:6px;}
+.co-hero p{font-size:12px;color:rgba(255,255,255,.6);line-height:1.6;}
+</style>
+</head>
+<body>
+
+<div class="ptr-indicator" id="ptr-indicator">↓ Syncing...</div>
+<div class="topbar">
+  <div class="brand-row">
+    <div class="brand">
+      <div class="brand-icon" id="topbar-icon">PL</div>
+      <div class="brand-texts">
+        <div class="brand-name" id="topbar-name">Card EPOS Checker</div>
+        <div class="brand-sub">E-POS Settlement Tracker</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+      <div style="display:flex;gap:6px;">
+        <button class="co-switch-btn" onclick="switchTab('companies')">🏢 <span id="topbar-co">Companies</span></button>
+      </div>
+      <span id="sync-status" style="font-size:10px;color:rgba(255,255,255,.6);">⏳ Loading...</span>
+      <span onclick="showDebug()" style="font-size:10px;color:rgba(255,255,255,.35);cursor:pointer;">🔍 debug</span>
+    </div>
+  </div>
+  <div class="tabs">
+    <div class="tab" onclick="switchTab('dash')">🏠 Home</div>
+    <div class="tab active" onclick="switchTab('dsm')">📥 DSM Entry</div>
+    <div class="tab" onclick="switchTab('recv')">💰 Received</div>
+    <div class="tab" onclick="switchTab('report')">📊 Report</div>
+    <div class="tab" onclick="switchTab('ledger')">📒 Ledger</div>
+  </div>
+</div>
+
+<!-- ═══ DASHBOARD ═══ -->
+<div class="page" id="page-dash">
+  <!-- Pending Hero -->
+  <div class="dash-hero">
+    <div class="dash-pending-lbl">💳 Pending Balance</div>
+    <div class="dash-pending-amt" id="dash-pending">₹0</div>
+    <div class="dash-pending-sub" id="dash-pending-sub">0 unsettled batches</div>
+  </div>
+  <!-- Stats Grid -->
+  <div class="dash-grid">
+    <div class="dash-card blue">
+      <div class="dash-card-val" id="dash-today-total">₹0</div>
+      <div class="dash-card-lbl">Today's Batches</div>
+    </div>
+    <div class="dash-card red">
+      <div class="dash-card-val" id="dash-unsettled-count">0</div>
+      <div class="dash-card-lbl">Unsettled Batches</div>
+    </div>
+    <div class="dash-card green">
+      <div class="dash-card-val" id="dash-total-recv">₹0</div>
+      <div class="dash-card-lbl">Total Received</div>
+    </div>
+    <div class="dash-card orange">
+      <div class="dash-card-val" id="dash-total-batches">₹0</div>
+      <div class="dash-card-lbl">Total Batches</div>
+    </div>
+  </div>
+  <!-- FY Info -->
+  <div style="background:linear-gradient(135deg,#142952,#0B1E3D);border-radius:13px;padding:12px 15px;margin-bottom:13px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <div style="font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:2px;">Financial Year</div>
+      <div id="dash-fy" style="font-size:14px;font-weight:800;color:#F59E0B;font-family:'Roboto Mono',monospace;">FY 2026-27</div>
+    </div>
+    <button onclick="showFYSwitcher()" style="background:rgba(245,158,11,.2);border:1.5px solid rgba(245,158,11,.4);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;color:#F59E0B;cursor:pointer;">🗓 Switch FY</button>
+  </div>
+  <!-- Pending Batches -->
+  <div class="dash-recent">
+    <div class="dash-recent-hdr">🔴 Unsettled Batches</div>
+    <div id="dash-pending-list"><div class="empty"><div class="ico">✅</div><p>All settled!</p></div></div>
+  </div>
+  <!-- Quick Actions -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:13px;">
+    <button class="btn btn-primary" onclick="switchTab('dsm')" style="padding:14px;">📥 New Entry</button>
+    <button class="btn btn-green" onclick="switchTab('recv')" style="padding:14px;">💰 Received</button>
+  </div>
+</div>
+
+<!-- ═══ COMPANIES ═══ -->
+<div class="page" id="page-companies">
+  <div class="co-hero">
+    <div class="ico">🏢</div>
+    <h2>Company Profiles</h2>
+    <p>Each company has its own TIDs, batch entries and received credits — completely separate. Switch anytime, old data is always preserved.</p>
+  </div>
+  <div class="sh"><div class="sh-title">Your Companies</div><div class="sh-count" id="co-count"></div></div>
+  <div id="co-list"></div>
+  <div class="card">
+    <div class="card-title">➕ Add New Company</div>
+    <div class="form-row"><label>Company Name</label><input type="text" id="new-co-name" placeholder="e.g. Razorpay, PayU, Pine Labs"></div>
+    <div class="form-row-2">
+      <div><label>Short Code (icon)</label><input type="text" id="new-co-code" placeholder="e.g. RP" maxlength="3" style="text-transform:uppercase;letter-spacing:2px;font-weight:700;"></div>
+      <div><label>Accent Color</label><select id="new-co-color">
+        <option value="#1B5FBF">Blue</option>
+        <option value="#10B981">Green</option>
+        <option value="#F59E0B">Amber</option>
+        <option value="#8B5CF6">Purple</option>
+        <option value="#EF4444">Red</option>
+        <option value="#0891B2">Teal</option>
+      </select></div>
+    </div>
+    <button class="btn btn-primary" onclick="addCompany()">➕ Add Company</button>
+  </div>
+</div>
+
+<!-- ═══ DSM ENTRY ═══ -->
+<div class="page active" id="page-dsm">
+  <!-- FY Banner -->
+  <div id="fy-banner" style="background:linear-gradient(135deg,#142952,#0B1E3D);border-radius:13px;padding:12px 15px;margin-bottom:13px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px;">Financial Year</div>
+      <div id="fy-label" style="font-size:16px;font-weight:800;color:#F59E0B;font-family:'Roboto Mono',monospace;">FY 2025-26</div>
+    </div>
+    <button onclick="showFYSwitcher()" style="background:rgba(245,158,11,.2);border:1.5px solid rgba(245,158,11,.4);border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;color:#F59E0B;cursor:pointer;">🗓 Switch FY</button>
+  </div>
+  <div class="card">
+    <div class="card-title"><span>📲</span> New Transaction Entry</div>
+    <!-- TID — COMPULSORY FIRST -->
+    <div class="form-row">
+      <label>Select TID <span style="color:var(--red);font-size:13px;">*</span></label>
+      <select id="dsm-tid" onchange="onTIDChange()" style="border-color:var(--border);">
+        <option value="">— Choose TID first —</option>
+      </select>
+      <div id="tid-required-hint" style="font-size:11px;color:var(--red);margin-top:5px;display:none;">⚠️ Please select a TID to continue</div>
+    </div>
+    <div class="form-row-2">
+      <div><label>Batch Number</label><input type="number" id="dsm-batch" placeholder="Auto" min="1" style="background:#F8FAFD;"></div>
+      <div><label>Transaction Date</label><input type="date" id="dsm-date"></div>
+    </div>
+    <div class="form-row" id="amount-row">
+      <label>Transaction Amount (₹) <span style="color:var(--red);font-size:13px;">*</span></label>
+      <div class="big-amt-wrap">
+        <span class="big-rupee" id="rupee-sign" style="color:var(--muted);">₹</span>
+        <input type="number" id="dsm-amount" class="big-amt" placeholder="Select TID first" min="0" step="0.01" disabled style="opacity:.5;cursor:not-allowed;">
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="saveDSM()" id="save-dsm-btn" disabled style="opacity:.5;">＋ Save Transaction</button>
+  </div>
+  <div class="card">
+    <div class="card-title"><span>⚙️</span> Manage TID Numbers</div>
+    <div class="tid-wrap" id="tid-tags"></div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="new-tid" placeholder="Enter TID e.g. TID-123456" style="flex:1;">
+      <button class="btn btn-sm btn-accent" onclick="addTID()">+ Add</button>
+    </div>
+  </div>
+  <!-- Bank Holidays Card -->
+  <div class="card">
+    <div class="card-title"><span>🏦</span> Bank Holidays
+      <span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:4px;">2nd Sat auto-included</span>
+    </div>
+    <div id="holiday-tags" style="display:flex;flex-wrap:wrap;margin-bottom:11px;min-height:30px;"></div>
+    <div style="display:flex;gap:8px;">
+      <input type="date" id="new-holiday" style="flex:1;">
+      <button class="btn btn-sm btn-accent" onclick="addHoliday()">+ Add</button>
+    </div>
+  </div>
+  <!-- Search -->
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="dsm-search" placeholder="Search batch, amount, TID..." oninput="filterDSM(this.value)">
+  </div>
+  <div class="sh"><div class="sh-title">Today's Entries</div><div class="sh-count" id="today-count">0 transactions</div></div>
+  <div id="dsm-today"></div>
+  <div class="divider"></div>
+  <div class="sh"><div class="sh-title">Recent Entries</div><div class="sh-count" id="recent-count"></div></div>
+  <div id="dsm-recent"></div>
+</div>
+
+<!-- ═══ RECEIVED ═══ -->
+<div class="page" id="page-recv">
+  <div class="tiles">
+    <div class="tile t-blue"><div class="tile-val" id="ov-total">₹0</div><div class="tile-lbl">Total Batches</div></div>
+    <div class="tile t-green"><div class="tile-val" id="ov-recv">₹0</div><div class="tile-lbl">Total Received</div></div>
+    <div class="tile t-orange"><div class="tile-val" id="ov-pending">₹0</div><div class="tile-lbl">Still Pending</div></div>
+    <div class="tile t-red"><div class="tile-val" id="ov-cnt">0</div><div class="tile-lbl">Pending Batches</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title"><span>💳</span> Enter Credit Received</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6;">Enter the <strong>single lump-sum</strong> credited. App auto-matches oldest batches first.</p>
+    <div class="form-row"><label>Credit Date</label><input type="date" id="recv-date"></div>
+    <div class="form-row">
+      <label>Amount Received (₹)</label>
+      <div class="big-amt-wrap"><span class="big-rupee">₹</span><input type="number" id="recv-amount" class="big-amt" placeholder="0.00" min="0" step="0.01"></div>
+    </div>
+    <div class="form-row" style="margin-bottom:4px;"><label>Note (optional)</label><input type="text" id="recv-note" placeholder="e.g. Credit ref 12345"></div>
+    <button class="btn btn-green" onclick="saveRecv()" style="margin-top:12px;">✓ Save Received Entry</button>
+  </div>
+  <div class="sh"><div class="sh-title">Received Entries</div><div class="sh-count" id="recv-count"></div></div>
+  <div id="recv-list"></div>
+  <div class="divider"></div>
+  <div class="sh"><div class="sh-title">🔍 Batch Comparison</div><div class="sh-count" id="match-count"></div></div>
+  <p style="font-size:12px;color:var(--muted);margin-bottom:13px;">Batches matched oldest-first against total received pool.</p>
+  <div id="match-list"></div>
+</div>
+
+<!-- ═══ REPORT ═══ -->
+<div class="page" id="page-report">
+  <div class="card">
+    <div class="card-title"><span>🗓️</span> Report Filters</div>
+    <div class="filter-bar">
+      <div class="chip active" onclick="setFilter('today',this)">Today</div>
+      <div class="chip" onclick="setFilter('week',this)">This Week</div>
+      <div class="chip" onclick="setFilter('month',this)">This Month</div>
+      <div class="chip" onclick="setFilter('all',this)">All Time</div>
+      <div class="chip" onclick="setFilter('custom',this)">Custom</div>
+    </div>
+    <div id="custom-range" style="display:none;margin-bottom:11px;">
+      <div class="form-row-2">
+        <div><label>From</label><input type="date" id="rep-from" onchange="refreshReport()"></div>
+        <div><label>To</label><input type="date" id="rep-to" onchange="refreshReport()"></div>
+      </div>
+    </div>
+    <div><label>Filter by TID</label><select id="rep-tid" onchange="refreshReport()"><option value="ALL">All TIDs</option></select></div>
+  </div>
+  <div class="tiles">
+    <div class="tile t-blue"><div class="tile-val" id="rt-txn">₹0</div><div class="tile-lbl">Batch Total</div></div>
+    <div class="tile t-green"><div class="tile-val" id="rt-settled">₹0</div><div class="tile-lbl">Settled</div></div>
+    <div class="tile t-orange"><div class="tile-val" id="rt-pending">₹0</div><div class="tile-lbl">Pending Amt</div></div>
+    <div class="tile t-red"><div class="tile-val" id="rt-cnt">0</div><div class="tile-lbl">Pending Batches</div></div>
+  </div>
+  <div class="rep-section">
+    <div class="rep-section-hdr">📋 Batch Transactions — Settlement Status</div>
+    <div class="tbl-wrap" id="rep-batch-tbl"><div class="empty"><div class="ico">📊</div><p>No data</p></div></div>
+  </div>
+  <div class="rep-section">
+    <div class="rep-section-hdr">💳 Received Credits — Running Balance</div>
+    <div class="tbl-wrap" id="rep-recv-tbl"><div class="empty"><div class="ico">💳</div><p>No received entries</p></div></div>
+  </div>
+  <div class="export-row">
+    <button class="btn btn-accent" onclick="exportExcel()">⬇ Excel</button>
+    <button class="btn btn-primary" onclick="exportPDF()">⬇ PDF</button>
+  </div>
+  <div style="margin-top:28px;padding-top:16px;border-top:1px dashed #DDE5F0;text-align:center;">
+    <p style="font-size:11px;color:var(--muted);margin-bottom:10px;">Admin only — requires PIN</p>
+    <button onclick="showResetModal()" style="background:transparent;border:1.5px solid #FECACA;color:#B91C1C;font-size:12px;font-weight:700;padding:9px 22px;border-radius:10px;cursor:pointer;">🗑 Reset Current Company Data</button>
+  </div>
+</div>
+
+<!-- ═══ LEDGER ═══ -->
+<div class="page" id="page-ledger">
+  <!-- Opening Balance Strip -->
+  <div class="ob-strip">
+    <div>
+      <h3>Opening Balance</h3>
+      <p>Carries forward into all ledger calculations</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+      <span style="color:rgba(255,255,255,.6);font-size:16px;font-weight:700;">₹</span>
+      <input type="number" id="ob-input" placeholder="0.00" step="0.01" min="0" onkeydown="if(event.key==='Enter')saveLedgerOB()">
+      <button class="btn btn-accent btn-sm" onclick="saveLedgerOB()" style="padding:9px 14px;font-size:12px;">✓ Save</button>
+    </div>
+  </div>
+  <!-- Filters -->
+  <div class="card">
+    <div class="card-title">📅 Ledger Filters</div>
+    <div class="form-row"><label>From Date</label><input type="date" id="ldg-from"></div>
+    <div class="form-row"><label>To Date</label><input type="date" id="ldg-to"></div>
+    <div class="form-row"><label>Filter by TID</label><select id="ldg-tid"><option value="ALL">All TIDs</option></select></div>
+    <button class="btn btn-primary" onclick="generateLedger()" style="margin-top:4px;width:100%;">📒 Generate Ledger</button>
+    <button class="btn" onclick="generateMonthSummary()" style="margin-top:8px;width:100%;background:#10B981;color:#fff;border:none;border-radius:9px;padding:11px;font-weight:700;cursor:pointer;font-size:13px;">📅 Month-wise Summary</button>
+    <button class="btn" onclick="exportExcel(document.getElementById('ldg-from').value, document.getElementById('ldg-to').value)" style="margin-top:8px;width:100%;background:#1D6F42;color:#fff;border:none;border-radius:9px;padding:11px;font-weight:700;cursor:pointer;font-size:13px;">📊 Export Excel (.xlsx)</button>
+  </div>
+  <!-- Output -->
+  <div style="display:flex;gap:8px;margin-bottom:13px;">
+    <button class="btn btn-sm" onclick="backupData()" style="flex:1;background:#6B7280;color:#fff;">⬇ Backup</button>
+    <button class="btn btn-sm" onclick="document.getElementById('restore-input').click()" style="flex:1;background:#6B7280;color:#fff;">⬆ Restore</button>
+    <input type="file" id="restore-input" accept=".json" style="display:none;" onchange="restoreData(this)">
+  </div>
+  <div id="ldg-output" style="display:none;">
+    <div class="tiles">
+      <div class="tile t-blue"><div class="tile-val" id="ls-ob">₹0</div><div class="tile-lbl">Opening Bal</div></div>
+      <div class="tile t-red"><div class="tile-val" id="ls-dr">₹0</div><div class="tile-lbl">Total Debit</div></div>
+      <div class="tile t-green"><div class="tile-val" id="ls-cr">₹0</div><div class="tile-lbl">Total Credit</div></div>
+      <div class="tile t-orange"><div class="tile-val" id="ls-pending">₹0</div><div class="tile-lbl">Pending</div></div>
+    </div>
+    <div style="background:var(--card);border-radius:13px;padding:14px;text-align:center;border:1px solid var(--border);box-shadow:0 2px 8px rgba(11,30,61,.06);margin-bottom:13px;">
+      <div class="tile-val" id="ls-cb" style="font-size:18px;">₹0</div>
+      <div class="tile-lbl" style="margin-top:4px;">Closing Balance</div>
+    </div>
+    <div class="export-row">
+      <button class="btn btn-accent" onclick="exportLedgerExcel()">⬇ Excel</button>
+      <button class="btn btn-primary" onclick="exportLedgerPDF()">⬇ PDF</button>
+    </div>
+    <div class="ledger-scroll" style="border-radius:13px;border:1px solid var(--border);">
+      <div class="ledger-hdr">
+        <div class="ledger-hdr-row">
+          <span>Date</span><span>Batch #</span><span>TID / Particulars</span>
+          <span style="text-align:right">Debit</span>
+          <span style="text-align:right">Credit</span>
+          <span style="text-align:right">Balance</span>
+        </div>
+      </div>
+      <div id="ldg-rows"></div>
+    </div>
+  </div>
+</div>
+
+
+<div class="toast" id="toast"></div>
+<div class="modal-overlay" id="modal" onclick="maybeCloseModal(event)">
+  <div class="modal-box"><div class="modal-handle"></div><div id="modal-body"></div></div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// DATA MODEL
+// db = {
+//   activeCompanyId: 'co_xxx',
+//   companies: [{id, name, code, color, createdAt}],
+//   data: { [companyId]: {tids:[], transactions:[], received:[]} },
+//   overrides: { txnId: 'settled'|'partial'|'pending' }   ← synced to Sheets
+// }
+// ─────────────────────────────────────────────────────────────────────────────
+const RESET_PIN='1234'; // ← Change to your PIN
+const SHEET_URL='https://script.google.com/macros/s/AKfycbyaU2xr-mOyyHsWEq0DXcPM5M4izSCAAiRnTE-R0FWa33QC0YXJRjY2t7o27fHAEqNoHw/exec';
+const LOCAL_KEY='epos_active_co'; // only stores which company is active
+
+let db = { activeCompanyId:null, companies:[], data:{}, overrides:{} };
+let syncStatus = 'idle'; // idle | syncing | ok | err
+
+// ── SYNC HELPERS ────────────────────────────────────────────────────────────
+function setSyncStatus(s){
+  syncStatus=s;
+  const el=document.getElementById('sync-status');
+  if(!el)return;
+  if(s==='syncing') { el.textContent='⏳ Syncing...'; el.style.color='#F59E0B'; }
+  else if(s==='ok') { el.textContent='✅ Synced';     el.style.color='#10B981'; setTimeout(()=>{if(syncStatus==='ok')el.textContent='✅ Live';},2000); }
+  else if(s==='err'){ el.textContent='⚠️ Offline';    el.style.color='#EF4444'; }
+}
+
+async function apiGet(action){
+  const r=await fetch(`${SHEET_URL}?action=${action}`);
+  return r.json();
+}
+
+async function apiPost(payload){
+  const r=await fetch(SHEET_URL,{method:'POST',body:JSON.stringify(payload)});
+  return r.json();
+}
+
+// ── LOAD ALL DATA FROM GOOGLE SHEETS ────────────────────────────────────────
+async function loadFromSheet(){
+  setSyncStatus('syncing');
+  try{
+    const fy=getCurrentFY();
+    const remote = await fetch(`${SHEET_URL}?action=getAll&fy=${fy}`).then(r=>r.json());
+    if(remote.error) throw new Error(remote.error);
+
+    // Apps Script returns a FLAT structure:
+    // { transactions, received, tids, customers, openingBalance, overrides }
+    // Build a single default company from it if companies not present
+    const isFlat = !remote.companies || remote.companies.length===0;
+
+    if(isFlat){
+      // Use or create a stable default company id stored in localStorage
+      let id = localStorage.getItem('epos_default_co');
+      if(!id){ id='co_pinelab'; localStorage.setItem('epos_default_co',id); }
+
+      db.companies = [{id, name:'PineLab', code:'PL', color:'#1B5FBF', createdAt:''}];
+      db.data = { [id]: {
+        tids: remote.tids || [],
+        transactions: (remote.transactions||[]).map(t=>({...t, date:normalizeDate(t.date), amount:Number(t.amount)})),
+        received:     (remote.received||[]).map(r=>({...r, date:normalizeDate(r.date), amount:Number(r.amount), note:r.note||''}))
+      }};
+      db.activeCompanyId = id;
+    } else {
+      db.companies = remote.companies;
+      db.data      = remote.data || {};
+      db.companies.forEach(c=>{
+        if(!db.data[c.id]) db.data[c.id]={tids:[],transactions:[],received:[]};
+        db.data[c.id].transactions = (db.data[c.id].transactions||[]).map(t=>({...t,date:normalizeDate(t.date),amount:Number(t.amount)}));
+        db.data[c.id].received     = (db.data[c.id].received||[]).map(r=>({...r,date:normalizeDate(r.date),amount:Number(r.amount)}));
+      });
+      const saved = localStorage.getItem(LOCAL_KEY);
+      if(saved && db.companies.find(c=>c.id===saved)) db.activeCompanyId=saved;
+      else db.activeCompanyId = db.companies[0].id;
+    }
+
+    // Load overrides and opening balance from Sheets
+    db.overrides = remote.overrides || {};
+    db.openingBalance = remote.openingBalance || 0;
+
+    setSyncStatus('ok');
+    updateTopbar(); updateFYBanner(); renderTIDs(); autoFillBatch(); refreshDSM();
+    switchTab('dash'); // start on dashboard
+  } catch(e){
+    setSyncStatus('err');
+    toast('Could not connect to Google Sheets — working offline','err');
+    const local = localStorage.getItem('epos_v5');
+    if(local){
+      try{
+        const parsed = JSON.parse(local);
+        delete parsed.overrides; // ✅ never restore overrides from cache — always from Sheets
+        Object.assign(db, parsed);
+      }catch{}
+    }
+    if(!db.companies.length){
+      const id='co_pinelab';
+      db.companies=[{id,name:'PineLab',code:'PL',color:'#1B5FBF',createdAt:new Date().toISOString()}];
+      db.data={[id]:{tids:['TID-531833','TID-531834','TID-531835','TID-531836','TID-72588055'],transactions:[],received:[]}};
+      db.activeCompanyId=id;
+    }
+    updateTopbar(); renderTIDs(); autoFillBatch(); refreshDSM();
+  }
+}
+
+async function createDefaultCompany(){
+  const id='co_'+Date.now();
+  await apiPost({action:'saveCompany',data:{id,name:'PineLab',code:'PL',color:'#1B5FBF',createdAt:new Date().toISOString()}});
+  for(const tid of ['TID-531833','TID-531834','TID-531835','TID-531836','TID-72588055']){
+    await apiPost({action:'saveTID',companyId:id,tid});
+  }
+  db.activeCompanyId=id;
+}
+
+// save = persist active company + data locally for offline backup
+// ✅ overrides are NEVER cached locally — always loaded fresh from Sheets
+function save(){
+  localStorage.setItem(LOCAL_KEY, db.activeCompanyId||'');
+  const toCache = { activeCompanyId:db.activeCompanyId, companies:db.companies, data:db.data };
+  localStorage.setItem('epos_v5', JSON.stringify(toCache));
+}
+
+// Active company data shorthand
+function co(){return db.data[db.activeCompanyId]||{tids:[],transactions:[],received:[]};}
+function coInfo(){return db.companies.find(c=>c.id===db.activeCompanyId)||{};}
+
+// ── UTILS ──────────────────────────────────────────────────────────────────
+function todayStr(){return new Date().toISOString().split('T')[0];}
+function normalizeDate(d){
+  // Convert any date format to YYYY-MM-DD string for consistent storage
+  if(!d||d==='—'||d==='undefined'||d===null)return'';
+  const s=String(d);
+  // Already YYYY-MM-DD
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // Try parsing as Date object from Sheets (e.g. "Mon Mar 11 2026 00:00:00")
+  try{
+    const dt=new Date(d);
+    if(!isNaN(dt.getTime())){
+      const y=dt.getFullYear();
+      const m=String(dt.getMonth()+1).padStart(2,'0');
+      const day=String(dt.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
+    }
+  }catch{}
+  return s;
+}
+
+function fmtDate(d){
+  if(!d||d==='—'||d==='undefined')return'—';
+  // Handle Date objects or full ISO strings from Google Sheets
+  if(typeof d==='object'||String(d).length>10){
+    try{
+      const dt=new Date(d);
+      if(isNaN(dt.getTime()))return'—';
+      const day=String(dt.getDate()).padStart(2,'0');
+      const mon=String(dt.getMonth()+1).padStart(2,'0');
+      const yr=dt.getFullYear();
+      return `${day}/${mon}/${yr}`;
+    }catch{return'—';}
+  }
+  // Handle YYYY-MM-DD string
+  if(String(d).includes('-')){
+    const parts=String(d).split('-');
+    if(parts.length===3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  // Handle DD/MM/YYYY already formatted
+  if(String(d).includes('/')) return String(d);
+  return'—';
+}
+function fmtAmt(n){if(n===null||n===undefined||n==='')return'—';return'₹'+Number(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function toast(msg,type='ok'){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast ${type} show`;setTimeout(()=>t.className='toast',2800);}
+
+// ── TOPBAR ─────────────────────────────────────────────────────────────────
+function updateTopbar(){
+  const c=coInfo();
+  const icon=document.getElementById('topbar-icon');
+  icon.textContent=c.code||'CE';
+  icon.style.background=c.color||'var(--accent)';
+  icon.style.color='#fff';
+  document.getElementById('topbar-name').textContent='Card EPOS Checker';
+  document.getElementById('topbar-co').textContent=c.name||'Switch';
+}
+
+// ── TABS ───────────────────────────────────────────────────────────────────
+let curTab='dsm';
+function switchTab(tab){
+  curTab=tab;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['dash','dsm','recv','report','ledger'][i]===tab));
+  document.getElementById('page-'+(tab==='companies'?'companies':tab)).classList.add('active');
+  if(tab==='companies'){renderCompanies();return;}
+  if(!db.activeCompanyId){switchTab('companies');return;}
+  if(tab==='dash'){refreshDashboard();return;}
+  if(tab==='recv')refreshRecv();
+  if(tab==='report'){populateRepTid();refreshReport();}
+  if(tab==='ledger'){initLedgerTab();}
+}
+
+// ── COMPANY MANAGEMENT ─────────────────────────────────────────────────────
+function renderCompanies(){
+  const list=document.getElementById('co-list');
+  document.getElementById('co-count').textContent=`${db.companies.length} compan${db.companies.length!==1?'ies':'y'}`;
+  if(!db.companies.length){list.innerHTML='<div class="empty"><div class="ico">🏢</div><p>No companies yet</p></div>';return;}
+  list.innerHTML=db.companies.map(c=>{
+    const d=db.data[c.id]||{transactions:[],received:[]};
+    const isActive=c.id===db.activeCompanyId;
+    const tc=d.transactions.length, rc=d.received.length;
+    const canDelete=!isActive&&tc===0&&rc===0;
+    return`<div class="co-card${isActive?' active-co':''}" onclick="selectCompany('${c.id}')">
+      <div class="co-icon" style="background:${c.color||'#1B5FBF'}">${c.code}</div>
+      <div class="co-info">
+        <div class="co-name">${isActive?'✅ ':''}${c.name}</div>
+        <div class="co-meta">${tc} batch${tc!==1?'es':''} · ${rc} received entr${rc!==1?'ies':'y'} · Since ${fmtDate(c.createdAt?.split('T')[0])}</div>
+      </div>
+      <div class="co-actions" onclick="event.stopPropagation()">
+        <button class="btn btn-sm btn-edit" onclick="editCompany('${c.id}')">✏️</button>
+        ${canDelete?`<button class="btn btn-sm btn-del" onclick="deleteCompany('${c.id}')">✕</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectCompany(id){
+  db.activeCompanyId=id;
+  localStorage.setItem('epos_active_co',id);
+  save();
+  updateTopbar();renderTIDs();autoFillBatch();refreshDSM();
+  toast(`Switched to ${db.companies.find(c=>c.id===id)?.name}`);
+  switchTab('dsm');
+}
+
+async function addCompany(){
+  const name=document.getElementById('new-co-name').value.trim();
+  const code=document.getElementById('new-co-code').value.trim().toUpperCase();
+  const color=document.getElementById('new-co-color').value;
+  if(!name)return toast('Enter company name','err');
+  if(!code)return toast('Enter a short code','err');
+  const id='co_'+uid();
+  const newCo={id,name,code,color,createdAt:new Date().toISOString()};
+  db.companies.push(newCo);
+  db.data[id]={tids:[],transactions:[],received:[]};
+  document.getElementById('new-co-name').value='';
+  document.getElementById('new-co-code').value='';
+  renderCompanies(); save(); toast(`${name} added ✓`);
+  setSyncStatus('syncing');
+  await apiPost({action:'saveCompany',data:newCo});
+  setSyncStatus('ok');
+}
+
+function editCompany(id){
+  const c=db.companies.find(x=>x.id===id);if(!c)return;
+  showModal(`<div style="font-size:16px;font-weight:700;margin-bottom:16px;">✏️ Edit Company</div>
+    <div class="form-row"><label>Company Name</label><input type="text" id="ec-name" value="${c.name}"></div>
+    <div class="form-row-2">
+      <div><label>Short Code</label><input type="text" id="ec-code" value="${c.code}" maxlength="3" style="text-transform:uppercase;letter-spacing:2px;font-weight:700;"></div>
+      <div><label>Color</label><select id="ec-color">
+        <option value="#1B5FBF"${c.color==='#1B5FBF'?' selected':''}>Blue</option>
+        <option value="#10B981"${c.color==='#10B981'?' selected':''}>Green</option>
+        <option value="#F59E0B"${c.color==='#F59E0B'?' selected':''}>Amber</option>
+        <option value="#8B5CF6"${c.color==='#8B5CF6'?' selected':''}>Purple</option>
+        <option value="#EF4444"${c.color==='#EF4444'?' selected':''}>Red</option>
+        <option value="#0891B2"${c.color==='#0891B2'?' selected':''}>Teal</option>
+      </select></div>
+    </div>
+    <div style="display:flex;gap:9px;">
+      <button class="btn btn-primary" onclick="saveEditCompany('${id}')">✓ Save</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+
+async function saveEditCompany(id){
+  const name=document.getElementById('ec-name').value.trim();
+  const code=document.getElementById('ec-code').value.trim().toUpperCase();
+  const color=document.getElementById('ec-color').value;
+  if(!name||!code)return toast('Fill all fields','err');
+  const i=db.companies.findIndex(c=>c.id===id);
+  if(i>=0)db.companies[i]={...db.companies[i],name,code,color};
+  closeModal();renderCompanies();updateTopbar();renderTIDs();save();toast('Company updated ✓');
+  setSyncStatus('syncing');
+  await apiPost({action:'updateCompany',data:db.companies[i>=0?i:0]});
+  setSyncStatus('ok');
+}
+
+async function deleteCompany(id){
+  if(!confirm('Delete this company? This cannot be undone.'))return;
+  db.companies=db.companies.filter(c=>c.id!==id);
+  delete db.data[id];
+  renderCompanies(); save(); toast('Company deleted','err');
+  setSyncStatus('syncing');
+  await apiPost({action:'deleteCompany',id});
+  setSyncStatus('ok');
+}
+
+// ── TID MANAGEMENT ─────────────────────────────────────────────────────────
+function renderTIDs(){
+  const tids=co().tids||[];
+  document.getElementById('tid-tags').innerHTML=tids.map(t=>`<span class="tid-tag">${t}<span class="rm" onclick="removeTID('${t}')">×</span></span>`).join('');
+  const sel=document.getElementById('dsm-tid'),cur=sel.value;
+  sel.innerHTML='<option value="">— Choose TID first —</option>'+tids.map(t=>`<option${t===cur?' selected':''}>${t}</option>`).join('');
+  // Re-trigger TID change to update batch/amount state
+  onTIDChange();
+  populateRepTid();
+}
+
+function onTIDChange(){
+  const tid=document.getElementById('dsm-tid').value;
+  const amtInput=document.getElementById('dsm-amount');
+  const saveBtn=document.getElementById('save-dsm-btn');
+  const hint=document.getElementById('tid-required-hint');
+  const rupee=document.getElementById('rupee-sign');
+  const tidSel=document.getElementById('dsm-tid');
+
+  if(tid){
+    // Unlock amount and save button
+    amtInput.disabled=false;
+    amtInput.placeholder='0.00';
+    amtInput.style.opacity='1';
+    amtInput.style.cursor='auto';
+    saveBtn.disabled=false;
+    saveBtn.style.opacity='1';
+    rupee.style.color='var(--muted)';
+    tidSel.style.borderColor='var(--green)';
+    hint.style.display='none';
+    // Auto-fill batch for this specific TID
+    autoFillBatchForTID(tid);
+  } else {
+    // Lock amount and save button
+    amtInput.disabled=true;
+    amtInput.placeholder='Select TID first';
+    amtInput.style.opacity='.5';
+    amtInput.style.cursor='not-allowed';
+    amtInput.value='';
+    saveBtn.disabled=true;
+    saveBtn.style.opacity='.5';
+    rupee.style.color='var(--muted)';
+    tidSel.style.borderColor='var(--border)';
+    document.getElementById('dsm-batch').value='';
+  }
+}
+
+function autoFillBatchForTID(tid){
+  // Find the highest batch number for this specific TID in current FY
+  const txns=co().transactions.filter(t=>t.tid===tid);
+  if(txns.length>0){
+    const maxBatch=Math.max(...txns.map(t=>parseInt(t.batch)||0));
+    document.getElementById('dsm-batch').value=maxBatch+1;
+  } else {
+    document.getElementById('dsm-batch').value='';
+    document.getElementById('dsm-batch').placeholder='First batch';
+  }
+}
+
+// Keep for compatibility — called on company switch
+function autoFillBatch(){
+  const tid=document.getElementById('dsm-tid').value;
+  if(tid) autoFillBatchForTID(tid);
+}
+async function addTID(){
+  const inp=document.getElementById('new-tid'),val=inp.value.trim().toUpperCase();
+  if(!val)return toast('Enter a TID','err');
+  if(co().tids.includes(val))return toast('TID already exists','err');
+  co().tids.push(val); inp.value=''; renderTIDs(); toast(`${val} added`);
+  setSyncStatus('syncing');
+  await apiPost({action:'saveTID',companyId:db.activeCompanyId,tid:val});
+  setSyncStatus('ok'); save();
+}
+async function removeTID(t){
+  if(co().transactions.some(x=>x.tid===t))return toast('Cannot remove — has transactions','err');
+  co().tids=co().tids.filter(x=>x!==t); renderTIDs(); toast(`${t} removed`,'err');
+  setSyncStatus('syncing');
+  await apiPost({action:'deleteTID',companyId:db.activeCompanyId,tid:t});
+  setSyncStatus('ok'); save();
+}
+function populateRepTid(){
+  const s=document.getElementById('rep-tid'),c=s.value||'ALL';
+  s.innerHTML='<option value="ALL">All TIDs</option>'+(co().tids||[]).map(t=>`<option${t===c?' selected':''}>${t}</option>`).join('');
+}
+
+// ── DSM ENTRY ──────────────────────────────────────────────────────────────
+document.getElementById('dsm-date').value=todayStr();
+
+async function saveDSM(){
+  const tid=document.getElementById('dsm-tid').value.trim();
+  const batch=document.getElementById('dsm-batch').value.trim();
+  const date=document.getElementById('dsm-date').value;
+  const amount=parseFloat(document.getElementById('dsm-amount').value);
+  if(!tid){
+    document.getElementById('tid-required-hint').style.display='block';
+    document.getElementById('dsm-tid').style.borderColor='var(--red)';
+    return toast('Select a TID first','err');
+  }
+  if(!batch)return toast('Enter batch number','err');
+  if(!date)return toast('Select a date','err');
+  if(!amount||amount<=0)return toast('Enter a valid amount','err');
+  const entry={id:uid(),tid,batch,date,amount,createdAt:new Date().toISOString()};
+  co().transactions.push(entry);
+  // Auto-advance batch for this TID
+  document.getElementById('dsm-batch').value=parseInt(batch)+1;
+  document.getElementById('dsm-amount').value='';
+  document.getElementById('dsm-amount').focus();
+  toast(`Saved ✓  Batch #${batch}  ${fmtAmt(amount)}`);
+  refreshDSM(); save();
+  setSyncStatus('syncing');
+  await apiPost({action:'saveTransaction',data:{...entry,companyId:db.activeCompanyId,fy:getCurrentFY()}});
+  setSyncStatus('ok');
+}
+
+async function delTxn(id){
+  if(!confirm('Delete this entry?'))return;
+  co().transactions=co().transactions.filter(t=>t.id!==id);
+  refreshDSM(); save(); toast('Deleted','err');
+  setSyncStatus('syncing');
+  await apiPost({action:'deleteTransaction',id,companyId:db.activeCompanyId,fy:getCurrentFY()});
+  setSyncStatus('ok');
+}
+
+function editTxn(id){
+  const t=co().transactions.find(x=>x.id===id);if(!t)return;
+  const opts=co().tids.map(x=>`<option${x===t.tid?' selected':''}>${x}</option>`).join('');
+  showModal(`<div style="font-size:16px;font-weight:700;margin-bottom:16px;">✏️ Edit Transaction</div>
+    <div class="form-row"><label>TID</label><select id="et-tid">${opts}</select></div>
+    <div class="form-row-2">
+      <div><label>Batch No.</label><input type="number" id="et-batch" value="${t.batch}" min="1"></div>
+      <div><label>Date</label><input type="date" id="et-date" value="${t.date}"></div>
+    </div>
+    <div class="form-row"><label>Amount (₹)</label><input type="number" id="et-amount" value="${t.amount}" min="0" step="0.01"></div>
+    <div style="display:flex;gap:9px;margin-top:6px;">
+      <button class="btn btn-primary" onclick="saveEditTxn('${id}')">✓ Save</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+async function saveEditTxn(id){
+  const tid=document.getElementById('et-tid').value;
+  const batch=document.getElementById('et-batch').value.trim();
+  const date=document.getElementById('et-date').value;
+  const amount=parseFloat(document.getElementById('et-amount').value);
+  if(!tid||!batch||!date||!amount||amount<=0)return toast('Fill all fields','err');
+  const i=co().transactions.findIndex(t=>t.id===id);
+  if(i>=0)co().transactions[i]={...co().transactions[i],tid,batch,date,amount};
+  closeModal();refreshDSM();save();toast('Entry updated ✓');
+  setSyncStatus('syncing');
+  await apiPost({action:'updateTransaction',data:{...co().transactions[i>=0?i:0],companyId:db.activeCompanyId},fy:getCurrentFY()});
+  setSyncStatus('ok');
+}
+
+function refreshDSM(){
+  const today=todayStr();
+  const fyTxns=coFYTransactions();
+  const q=_searchQuery||'';
+
+  function matchSearch(t){
+    if(!q) return true;
+    return String(t.batch).includes(q) ||
+           t.tid.toLowerCase().includes(q) ||
+           String(t.amount).includes(q) ||
+           fmtAmt(t.amount).includes(q);
+  }
+
+  const todayT=fyTxns.filter(t=>t.date===today&&matchSearch(t)).reverse();
+  const recentT=fyTxns.filter(t=>t.date!==today&&matchSearch(t)).reverse().slice(0,40);
+  document.getElementById('today-count').textContent=`${todayT.length} transaction${todayT.length!==1?'s':''}`;
+  const tl=document.getElementById('dsm-today');
+  tl.innerHTML=todayT.length===0?'<div class="empty"><div class="ico">📋</div><p>No entries yet for today</p></div>':todayT.map(t=>eHTML(t,true)).join('');
+  const rl=document.getElementById('dsm-recent');
+  document.getElementById('recent-count').textContent=recentT.length>0?`${recentT.length} entries`:'';
+  if(!recentT.length){rl.innerHTML='';return;}
+  const g={};recentT.forEach(t=>{if(!g[t.date])g[t.date]=[];g[t.date].push(t);});
+  rl.innerHTML=Object.entries(g).map(([d,es])=>`<div class="dg-header">📅 ${fmtDate(d)}</div>`+es.map(t=>eHTML(t,false)).join('')).join('');
+  // Init swipe on all entry items
+  document.querySelectorAll('.entry-item').forEach(el=>{
+    const id=el.id.replace('ei-','');
+    if(id) initSwipe(el,id);
+  });
+  // Also refresh dashboard if on it
+  if(curTab==='dash') refreshDashboard();
+}
+function fmtTimestamp(iso){
+  if(!iso) return '';
+  try{
+    const d=new Date(iso);
+    return d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
+  }catch{return '';}
+}
+function eHTML(t,showDel){
+  const ts=t.createdAt?fmtTimestamp(t.createdAt):'';
+  return`<div class="entry-item" id="ei-${t.id}">
+    <div class="entry-inner" style="padding:13px 15px;border-radius:12px;border:1px solid var(--border);">
+      <div class="entry-top">
+        <div><div class="e-tid">${t.tid}</div><div class="e-meta">📅 ${fmtDate(t.date)}${ts?' · 🕐 '+ts:''}</div></div>
+        <div><div class="e-amt">${fmtAmt(t.amount)}</div><div class="e-batch">Batch #${t.batch}</div></div>
+      </div>
+      <div class="entry-actions">
+        <button class="btn btn-sm btn-edit" onclick="editTxn('${t.id}')">✏️ Edit</button>
+        ${showDel?`<button class="btn btn-sm btn-del" onclick="delTxn('${t.id}')">✕ Delete</button>`:''}
+      </div>
+    </div>
+    <div class="swipe-del-btn" onclick="delTxn('${t.id}')">🗑<br>Delete</div>
+  </div>`;
+}
+
+// ── RECEIVED ───────────────────────────────────────────────────────────────
+document.getElementById('recv-date').value=todayStr();
+
+async function saveRecv(){
+  const date=document.getElementById('recv-date').value;
+  const amount=parseFloat(document.getElementById('recv-amount').value);
+  const note=document.getElementById('recv-note').value.trim();
+  if(!date)return toast('Select a date','err');
+  if(!amount||amount<=0)return toast('Enter received amount','err');
+  const entry={id:uid(),date,amount,note,savedAt:new Date().toISOString()};
+  co().received.push(entry);
+  document.getElementById('recv-amount').value='';
+  document.getElementById('recv-note').value='';
+  toast(`Saved — ${fmtAmt(amount)}`);
+  refreshRecv(); save();
+  setSyncStatus('syncing');
+  await apiPost({action:'saveReceived',data:{...entry,companyId:db.activeCompanyId},fy:getCurrentFY()});
+  setSyncStatus('ok');
+}
+async function delRecv(id){
+  if(!confirm('Delete this received entry?'))return;
+  co().received=co().received.filter(r=>r.id!==id);
+  refreshRecv(); save(); toast('Deleted','err');
+  setSyncStatus('syncing');
+  await apiPost({action:'deleteReceived',id,companyId:db.activeCompanyId,fy:getCurrentFY()});
+  setSyncStatus('ok');
+}
+function editRecv(id){
+  const r=co().received.find(x=>x.id===id);if(!r)return;
+  showModal(`<div style="font-size:16px;font-weight:700;margin-bottom:16px;">✏️ Edit Received Entry</div>
+    <div class="form-row"><label>Credit Date</label><input type="date" id="er-date" value="${r.date}"></div>
+    <div class="form-row"><label>Amount Received (₹)</label>
+      <div class="big-amt-wrap"><span class="big-rupee">₹</span><input type="number" id="er-amount" class="big-amt" value="${r.amount}" min="0" step="0.01"></div>
+    </div>
+    <div class="form-row"><label>Note (optional)</label><input type="text" id="er-note" value="${r.note||''}"></div>
+    <div style="display:flex;gap:9px;margin-top:6px;">
+      <button class="btn btn-primary" onclick="saveEditRecv('${id}')">✓ Save</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+async function saveEditRecv(id){
+  const date=document.getElementById('er-date').value;
+  const amount=parseFloat(document.getElementById('er-amount').value);
+  const note=document.getElementById('er-note').value.trim();
+  if(!date||!amount||amount<=0)return toast('Fill all fields','err');
+  const i=co().received.findIndex(r=>r.id===id);
+  if(i>=0)co().received[i]={...co().received[i],date,amount,note};
+  closeModal();refreshRecv();save();toast('Updated ✓');
+  setSyncStatus('syncing');
+  await apiPost({action:'updateReceived',data:{...co().received[i>=0?i:0],companyId:db.activeCompanyId},fy:getCurrentFY()});
+  setSyncStatus('ok');
+}
+
+function refreshRecv(){
+  const m=computeMatch();
+  document.getElementById('ov-total').textContent=fmtAmt(m.totalBatches);
+  document.getElementById('ov-recv').textContent=fmtAmt(m.totalReceived);
+  document.getElementById('ov-pending').textContent=fmtAmt(m.totalPending);
+  document.getElementById('ov-cnt').textContent=m.pendingCount;
+
+  const sorted=[...coFYReceived()].sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById('recv-count').textContent=`${sorted.length} entr${sorted.length!==1?'ies':'y'}`;
+  const rl=document.getElementById('recv-list');
+  rl.innerHTML=!sorted.length
+    ?'<div class="empty"><div class="ico">💳</div><p>No received entries yet</p></div>'
+    :sorted.map(r=>`<div class="recv-entry">
+        <div class="recv-header"><div class="recv-label">${fmtAmt(r.amount)}</div><span class="badge bb">Received</span></div>
+        <div class="recv-sub">📅 ${fmtDate(r.date)}${r.note?' · '+r.note:''}${r.savedAt?' · 🕐 '+fmtTimestamp(r.savedAt):''}</div>
+        <div class="recv-actions">
+          <button class="btn btn-sm btn-edit" onclick="editRecv('${r.id}')">✏️ Edit</button>
+          <button class="btn btn-sm btn-del" onclick="delRecv('${r.id}')">✕ Delete</button>
+        </div>
+      </div>`).join('');
+
+  // Render match
+  const ml=document.getElementById('match-list');
+  document.getElementById('match-count').textContent=`${m.settledCount} settled · ${m.pendingCount} pending`;
+  if(!m.batches.length){ml.innerHTML='<div class="empty"><div class="ico">🔍</div><p>No batches entered yet</p></div>';return;}
+  const pct=m.totalBatches>0?Math.min(100,(m.totalReceived/m.totalBatches)*100).toFixed(1):0;
+  const bc=pct>=100?'#10B981':pct>=50?'#F59E0B':'#EF4444';
+  let html=`<div class="card" style="margin-bottom:13px;padding:16px;">
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+      <span style="font-size:12px;font-weight:700;color:var(--muted);">AMOUNT MATCHED</span>
+      <span style="font-size:14px;font-weight:700;color:${bc};">${pct}%</span>
+    </div>
+    <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%;background:${bc};"></div></div>
+    <div style="display:flex;justify-content:space-between;margin-top:6px;">
+      <span style="font-size:11px;color:var(--muted);">${fmtAmt(m.totalReceived)} received</span>
+      <span style="font-size:11px;color:var(--muted);">${fmtAmt(m.totalBatches)} total</span>
+    </div>
+  </div>`;
+  const pending=m.batches.filter(b=>b.status!=='settled');
+  const settled=m.batches.filter(b=>b.status==='settled');
+  if(pending.length){
+    html+=`<div class="match-title"><span>🔴</span> Pending / Unmatched Batches (${pending.length})</div>`;
+    html+=pending.map(b=>`<div class="batch-row ${b.status}">
+      <div>
+        <div class="br-num">Batch #${b.batch}</div>
+        <div class="br-tid">${b.tid}</div>
+        <div class="br-meta">📅 ${fmtDate(b.date)}</div>
+        ${b.status==='partial'?`<div style="font-size:11px;color:var(--orange);margin-top:3px;">Partial — ${fmtAmt(b.receivedAmt)} received so far</div>`:''}
+      </div>
+      <div class="br-right">
+        <div class="br-amt">${fmtAmt(b.amount)}</div>
+        <div class="br-status" style="color:${b.status==='partial'?'var(--red)':'var(--orange)'};">${b.status==='partial'?'⚠️ Partial':'❌ Not received'}</div>
+        ${b.status==='partial'?`<div style="font-size:11px;color:var(--red);margin-top:2px;">Short ${fmtAmt(Math.abs(b.balance))}</div>`:''}
+        <select class="status-sel" onchange="setOverride('${b.id}',this.value)" style="margin-top:6px;">
+          <option value="auto"${!getOverrides()[b.id]?' selected':''}>🔄 Auto</option>
+          <option value="settled"${getOverrides()[b.id]==='settled'?' selected':''}>✅ Settled</option>
+          <option value="partial"${getOverrides()[b.id]==='partial'?' selected':''}>⚠️ Partial</option>
+          <option value="pending"${getOverrides()[b.id]==='pending'?' selected':''}>❌ Pending</option>
+        </select>
+      </div>
+    </div>`).join('');
+  }
+  if(settled.length){
+    html+=`<div class="match-title" style="margin-top:14px;"><span>🟢</span> Settled Batches (${settled.length})</div>`;
+    html+=settled.map(b=>`<div class="batch-row settled">
+      <div>
+        <div class="br-num">Batch #${b.batch}</div>
+        <div class="br-tid">${b.tid}</div>
+        <div class="br-meta">📅 ${fmtDate(b.date)}</div>
+      </div>
+      <div class="br-right">
+        <div class="br-amt">${fmtAmt(b.amount)}</div>
+        <div class="br-status" style="color:var(--green);">✅ Settled</div>
+        <select class="status-sel" onchange="setOverride('${b.id}',this.value)" style="margin-top:6px;">
+          <option value="auto"${!getOverrides()[b.id]?' selected':''}>🔄 Auto</option>
+          <option value="settled"${getOverrides()[b.id]==='settled'?' selected':''}>✅ Settled</option>
+          <option value="partial"${getOverrides()[b.id]==='partial'?' selected':''}>⚠️ Partial</option>
+          <option value="pending"${getOverrides()[b.id]==='pending'?' selected':''}>❌ Pending</option>
+        </select>
+      </div>
+    </div>`).join('');
+  }
+  if(m.excess>0){
+    html+=`<div style="background:#DBEAFE;border-radius:11px;padding:13px;margin-top:10px;border:1.5px solid #93C5FD;">
+      <div style="font-size:13px;font-weight:700;color:var(--blue);">ℹ️ Excess: ${fmtAmt(m.excess)}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;">Received more than all batches — will adjust against future batches.</div>
+    </div>`;
+  }
+  ml.innerHTML=html;
+}
+
+// ── MODAL ──────────────────────────────────────────────────────────────────
+function showModal(html){document.getElementById('modal-body').innerHTML=html;document.getElementById('modal').classList.add('open');}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+function maybeCloseModal(e){if(e.target===document.getElementById('modal'))closeModal();}
+
+// ── REPORT ─────────────────────────────────────────────────────────────────
+let curFilter='today';
+function setFilter(f,el){curFilter=f;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');document.getElementById('custom-range').style.display=f==='custom'?'block':'none';refreshReport();}
+
+function getFilteredTxns(){
+  const today=todayStr(),now=new Date();
+  let txns=[...coFYTransactions()];
+  if(curFilter==='today')txns=txns.filter(t=>t.date===today);
+  else if(curFilter==='week'){const w=new Date(now);w.setDate(w.getDate()-7);txns=txns.filter(t=>new Date(t.date)>=w);}
+  else if(curFilter==='month')txns=txns.filter(t=>t.date.startsWith(today.slice(0,7)));
+  else if(curFilter==='custom'){
+    const f=document.getElementById('rep-from').value,to=document.getElementById('rep-to').value;
+    if(f)txns=txns.filter(t=>t.date>=f);if(to)txns=txns.filter(t=>t.date<=to);
+  }
+  const tid=document.getElementById('rep-tid').value;
+  if(tid!=='ALL')txns=txns.filter(t=>t.tid===tid);
+  return txns;
+}
+
+function refreshReport(){
+  const txns=getFilteredTxns();
+  const m=computeMatch();
+  const mm={};m.batches.forEach(b=>{mm[b.id]=b;});
+  const rows=txns.sort((a,b)=>a.date.localeCompare(b.date)||(parseInt(a.batch)-parseInt(b.batch))).map(t=>{const mb=mm[t.id];return mb?mb:{...t,status:'pending',receivedAmt:0,balance:-t.amount};});
+  const totalTxn=rows.reduce((s,r)=>s+r.amount,0);
+  const settledAmt=rows.filter(r=>r.status==='settled').reduce((s,r)=>s+r.amount,0);
+  const pendingAmt=rows.filter(r=>r.status!=='settled').reduce((s,r)=>s+r.amount,0);
+  const pendingCnt=rows.filter(r=>r.status!=='settled').length;
+  document.getElementById('rt-txn').textContent=fmtAmt(totalTxn);
+  document.getElementById('rt-settled').textContent=fmtAmt(settledAmt);
+  document.getElementById('rt-pending').textContent=fmtAmt(pendingAmt);
+  document.getElementById('rt-cnt').textContent=pendingCnt;
+
+  // Batch table
+  const bw=document.getElementById('rep-batch-tbl');
+  if(!rows.length){bw.innerHTML='<div class="empty"><div class="ico">📊</div><p>No data</p></div>';}
+  else{
+    let h=`<table class="tbl"><thead><tr><th>Date</th><th>TID</th><th>Batch #</th><th>Amount</th><th>Status</th></tr></thead><tbody>`;
+    rows.forEach(r=>{
+      const sc=r.status==='settled'?'bg':r.status==='partial'?'bo':'br';
+      const sl=r.status==='settled'?'🟢 Settled':r.status==='partial'?'🟡 Partial':'🔴 Pending';
+      const ov=getOverrides();
+      h+=`<tr>
+        <td style="white-space:nowrap;">${fmtDate(r.date)}</td>
+        <td style="font-family:'Roboto Mono',monospace;font-size:11px;">${r.tid}</td>
+        <td style="font-family:'Roboto Mono',monospace;font-weight:700;">#${r.batch}</td>
+        <td style="font-family:'Roboto Mono',monospace;">${fmtAmt(r.amount)}</td>
+        <td>
+          <span class="badge ${sc}" style="font-size:10px;">${sl}</span>
+          <select class="status-sel" onchange="setOverride('${r.id}',this.value)" style="margin-left:4px;font-size:10px;padding:2px 4px;">
+            <option value="auto"${!ov[r.id]?' selected':''}>Auto</option>
+            <option value="settled"${ov[r.id]==='settled'?' selected':''}>✅</option>
+            <option value="partial"${ov[r.id]==='partial'?' selected':''}>⚠️</option>
+            <option value="pending"${ov[r.id]==='pending'?' selected':''}>❌</option>
+          </select>
+        </td>
+      </tr>`;
+    });
+    h+=`</tbody><tfoot><tr><td colspan="3">TOTAL (${rows.length} batches)</td><td style="font-family:'Roboto Mono',monospace;">${fmtAmt(totalTxn)}</td><td></td></tr></tfoot></table>`;
+    bw.innerHTML=h;
+  }
+
+  // Received table
+  const rw=document.getElementById('rep-recv-tbl');
+  const rs=[...coFYReceived()].sort((a,b)=>a.date.localeCompare(b.date));
+  if(!rs.length){rw.innerHTML='<div class="empty"><div class="ico">💳</div><p>No received entries</p></div>';}
+  else{
+    let run=0;
+    let h=`<table class="tbl"><thead><tr><th>Credit Date</th><th>Received</th><th>Note</th><th>Running Total</th><th>Balance</th></tr></thead><tbody>`;
+    rs.forEach(r=>{
+      run+=r.amount;const bal=run-m.totalBatches;
+      const bc2=bal<0?'color:#B91C1C;':bal>0?'color:#15803D;':'';
+      h+=`<tr><td style="white-space:nowrap;">${fmtDate(r.date)}</td><td style="font-family:'Roboto Mono',monospace;font-weight:700;">${fmtAmt(r.amount)}</td><td style="font-size:11px;color:var(--muted);">${r.note||'—'}</td><td style="font-family:'Roboto Mono',monospace;">${fmtAmt(run)}</td><td style="font-family:'Roboto Mono',monospace;font-weight:700;${bc2}">${fmtAmt(bal)}</td></tr>`;
+    });
+    const fb=rs.reduce((s,r)=>s+r.amount,0)-m.totalBatches;
+    const fc=fb<0?'color:#FCA5A5;':fb>0?'color:#6EE7B7;':'color:#fff;';
+    h+=`</tbody><tfoot><tr><td>FINAL</td><td style="font-family:'Roboto Mono',monospace;">${fmtAmt(rs.reduce((s,r)=>s+r.amount,0))}</td><td></td><td></td><td style="font-family:'Roboto Mono',monospace;${fc}">${fmtAmt(fb)} ${fb<0?'(Short)':fb>0?'(Excess)':'(Exact ✓)'}</td></tr></tfoot></table>`;
+    rw.innerHTML=h;
+  }
+}
+
+// ── EXPORT EXCEL ───────────────────────────────────────────────────────────
+async function exportExcel(fromDate, toDate){
+  // Load SheetJS if needed
+  if(typeof XLSX==='undefined'){
+    await new Promise((res,rej)=>{
+      const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload=res; s.onerror=rej;
+      document.head.appendChild(s);
+    });
+  }
+  const fy=getCurrentFY();
+  const from=fromDate||fyStart(fy);
+  const to=toDate||fyEnd(fy);
+  const txns=co().transactions.filter(t=>t.date>=from&&t.date<=to)
+    .sort((a,b)=>a.date.localeCompare(b.date)||(parseInt(a.batch)-parseInt(b.batch)));
+  const recv=co().received.filter(r=>r.date>=from&&r.date<=to)
+    .sort((a,b)=>a.date.localeCompare(b.date));
+  if(!txns.length&&!recv.length)return toast('No data in selected range','err');
+
+  const m=computeMatch();
+  const statusMap={};m.batches.forEach(b=>{statusMap[b.id]=b.status;});
+  const ob=getLedgerOB();
+  const cname=coInfo().name||'Card EPOS';
+
+  // Sheet 1: Ledger
+  const combined=[
+    ...txns.map(t=>({date:t.date,batch:'#'+t.batch,particulars:t.tid,note:'',debit:t.amount,credit:'',type:'D'})),
+    ...recv.map(r=>({date:r.date,batch:'—',particulars:'Credit Received',note:r.note||'',debit:'',credit:r.amount,type:'C'}))
+  ].sort((a,b)=>a.date.localeCompare(b.date));
+
+  let bal=ob;
+  const ledRows=[['Date','Batch #','TID / Particulars','Note','Debit (Dr)','Credit (Cr)','Balance']];
+  ledRows.push(['OPENING BALANCE','','','','','',ob]);
+  combined.forEach(r=>{
+    if(r.type==='D') bal-=r.debit; else bal+=r.credit;
+    ledRows.push([r.date,r.batch,r.particulars,r.note,r.debit||'',r.credit||'',Math.abs(bal).toFixed(2)+(bal<0?' Dr':' Cr')]);
+  });
+  ledRows.push(['CLOSING BALANCE (Unsettled)','','','','','',m.totalPending.toFixed(2)+' Dr']);
+
+  // Sheet 2: Batch Status
+  const batchRows=[['Date','TID','Batch #','Amount (₹)','Status','Next Settlement Day']];
+  txns.forEach(t=>{
+    const st=statusMap[t.id]||'pending';
+    batchRows.push([t.date,t.tid,'#'+t.batch,t.amount,st==='settled'?'🟢 Settled':st==='partial'?'🟡 Partial':'🔴 Pending',nextBusinessDay(t.date)]);
+  });
+
+  // Sheet 3: Received
+  const recvRows=[['Date','Amount (₹)','Note','Saved At']];
+  recv.forEach(r=>recvRows.push([r.date,r.amount,r.note||'',r.savedAt||'']));
+
+  // Sheet 4: Month Summary
+  const months={};
+  txns.forEach(t=>{
+    const mo=t.date.slice(0,7);
+    if(!months[mo])months[mo]={batchAmt:0,recvAmt:0,pendingAmt:0,count:0};
+    months[mo].batchAmt+=t.amount;months[mo].count++;
+    if(statusMap[t.id]!=='settled')months[mo].pendingAmt+=t.amount;
+  });
+  recv.forEach(r=>{const mo=r.date.slice(0,7);if(months[mo])months[mo].recvAmt+=r.amount;});
+  const monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthRows=[['Month','Batch Total (₹)','Received (₹)','Pending (₹)','Entry Count']];
+  Object.keys(months).sort().forEach(mo=>{
+    const[y,m2]=mo.split('-');
+    monthRows.push([`${monthNames[parseInt(m2)-1]} ${y}`,months[mo].batchAmt,months[mo].recvAmt,months[mo].pendingAmt,months[mo].count]);
+  });
+
+  const wb=XLSX.utils.book_new();
+  const ws1=XLSX.utils.aoa_to_sheet(ledRows);
+  ws1['!cols']=[{wch:12},{wch:10},{wch:20},{wch:8},{wch:14},{wch:14},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,ws1,'Ledger');
+  const ws2=XLSX.utils.aoa_to_sheet(batchRows);
+  ws2['!cols']=[{wch:12},{wch:14},{wch:10},{wch:14},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws2,'Batch Status');
+  const ws3=XLSX.utils.aoa_to_sheet(recvRows);
+  XLSX.utils.book_append_sheet(wb,ws3,'Received');
+  const ws4=XLSX.utils.aoa_to_sheet(monthRows);
+  XLSX.utils.book_append_sheet(wb,ws4,'Month Summary');
+
+  XLSX.writeFile(wb,`${cname}_Ledger_${from}_to_${to}.xlsx`);
+  toast('Excel downloaded ✅ — share via WhatsApp Files');
+}
+
+// ── EXPORT PDF ─────────────────────────────────────────────────────────────
+function exportPDF(){
+  const txns=getFilteredTxns();if(!txns.length)return toast('No data','err');
+  const m=computeMatch();const mm={};m.batches.forEach(b=>{mm[b.id]=b;});
+  const cname=coInfo().name||'Company';
+  const bRows=txns.sort((a,b)=>a.date.localeCompare(b.date)||(parseInt(a.batch)-parseInt(b.batch))).map(t=>{
+    const mb=mm[t.id]||{status:'pending'};
+    const sl=mb.status==='settled'?'🟢 Settled':mb.status==='partial'?'🟡 Partial':'🔴 Pending';
+    const sc=mb.status==='settled'?'#15803D':mb.status==='partial'?'#92400E':'#B91C1C';
+    return`<tr><td>${fmtDate(t.date)}</td><td>${t.tid}</td><td style="font-weight:700;">#${t.batch}</td><td>₹${t.amount.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="color:${sc};font-weight:700;">${sl}</td></tr>`;
+  }).join('');
+  const rs=[...coFYReceived()].sort((a,b)=>a.date.localeCompare(b.date));
+  let run2=0;
+  const rRows=rs.map(r=>{run2+=r.amount;const bal=run2-m.totalBatches;const bc=bal<0?'#B91C1C':bal>0?'#15803D':'#374151';return`<tr><td>${fmtDate(r.date)}</td><td>₹${r.amount.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td>${r.note||'—'}</td><td>₹${run2.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="color:${bc};font-weight:700;">₹${bal.toLocaleString('en-IN',{minimumFractionDigits:2})}</td></tr>`;}).join('');
+  const tt=txns.reduce((s,t)=>s+t.amount,0);
+  const tr2=co().received.reduce((s,r)=>s+r.amount,0);
+  const fb=tr2-m.totalBatches;
+  const pendingAmt=m.totalPending;
+  const _repHtml=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${cname} EPOS Report</title>
+  <style>body{font-family:Arial,sans-serif;font-size:12px;padding:24px;color:#0B1E3D;}h1{font-size:20px;margin-bottom:3px;}
+  h2{font-size:13px;margin:20px 0 8px;padding:8px 12px;background:#F0F4FA;border-radius:6px;border-left:4px solid #1B5FBF;color:#0B1E3D;}
+  .meta{color:#7A90B0;font-size:11px;margin-bottom:14px;}
+  .summary{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
+  .sbox{background:#F8FAFD;border:1px solid #DDE5F0;border-radius:8px;padding:10px 14px;flex:1;min-width:80px;}
+  .sval{font-size:15px;font-weight:700;font-family:monospace;}.slbl{font-size:10px;color:#7A90B0;text-transform:uppercase;margin-top:2px;}
+  table{width:100%;border-collapse:collapse;margin-bottom:4px;}
+  th{background:#0B1E3D;color:#fff;padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase;}
+  td{padding:8px 10px;border-bottom:1px solid #DDE5F0;font-size:12px;}tr:nth-child(even) td{background:#F8FAFD;}
+  tfoot td{background:#142952!important;color:#fff!important;font-weight:700;}
+  .btn{background:#1B5FBF;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;margin:8px 8px 8px 0;}
+  .btn-back{background:#6B7280;}
+  .btn-wrap{margin-top:20px;}@media print{.btn-wrap{display:none;}}</style></head><body>
+  <div class="btn-wrap">
+    <button class="btn btn-back" onclick="window.close()">← Back to App</button>
+    <button class="btn" onclick="window.print()">🖨 Print / Save as PDF</button>
+  </div>
+  <h1>🏦 ${cname.toUpperCase()} — E-POS TRANSACTION REPORT</h1>
+  <div class="meta">Generated: ${new Date().toLocaleString('en-IN')}</div>
+  <div class="summary">
+    <div class="sbox"><div class="sval" style="color:#1B5FBF;">₹${tt.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Total Batches</div></div>
+    <div class="sbox"><div class="sval" style="color:#10B981;">₹${tr2.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Total Received</div></div>
+    <div class="sbox"><div class="sval" style="color:${pendingAmt>0?'#EF4444':'#10B981'};">₹${pendingAmt.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Pending (Unsettled)</div></div>
+  </div>
+  <h2>📋 Batch Transactions — Settlement Status</h2>
+  <table><thead><tr><th>Date</th><th>TID</th><th>Batch #</th><th>Amount</th><th>Status</th></tr></thead>
+  <tbody>${bRows}</tbody>
+  <tfoot><tr><td colspan="3">TOTAL</td><td>₹${tt.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td></td></tr></tfoot></table>
+  <h2>💳 Received Credits — Running Balance</h2>
+  <table><thead><tr><th>Credit Date</th><th>Amount Received</th><th>Note</th><th>Running Total</th><th>Balance vs Batches (excl. OB)</th></tr></thead>
+  <tbody>${rRows}</tbody>
+  <tfoot><tr><td>FINAL</td><td>₹${tr2.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td></td><td></td>
+  <td style="color:${fb<0?'#FCA5A5':fb>0?'#6EE7B7':'#fff'};">₹${fb.toLocaleString('en-IN',{minimumFractionDigits:2})} ${fb<0?'(Short)':fb>0?'(Excess)':'(Exact ✓)'}</td></tr></tfoot></table>
+  </body></html>`;
+  const _repWin=window.open('','_blank');
+  if(_repWin){
+    _repWin.document.write(_repHtml);
+    _repWin.document.close();
+    toast('Report opened — use ← Back to return');
+  }
+}
+
+// ── RESET ──────────────────────────────────────────────────────────────────
+function showResetModal(){
+  const cname=coInfo().name||'this company';
+  showModal(`
+    <div style="text-align:center;margin-bottom:18px;">
+      <div style="font-size:38px;margin-bottom:8px;">🔐</div>
+      <div style="font-size:17px;font-weight:800;color:var(--navy);margin-bottom:6px;">Reset ${cname} Data</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.7;">Permanently deletes <strong>all transactions and received entries</strong> for <strong>${cname}</strong>.<br>TIDs will be kept. Enter your admin PIN to proceed.</div>
+    </div>
+    <div class="form-row">
+      <label>Admin PIN</label>
+      <input type="password" id="reset-pin" placeholder="••••" maxlength="8" style="font-size:26px;text-align:center;letter-spacing:10px;font-family:'Roboto Mono',monospace;padding:14px;">
+    </div>
+    <div id="reset-err" style="color:var(--red);font-size:12px;font-weight:700;text-align:center;margin-bottom:10px;display:none;">❌ Incorrect PIN — try again.</div>
+    <div style="display:flex;gap:9px;margin-bottom:13px;">
+      <button class="btn" style="background:linear-gradient(135deg,#EF4444,#DC2626);color:#fff;" onclick="confirmReset()">🗑 Reset Data</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+    </div>
+    <div style="background:#FEF2F2;border-radius:10px;padding:11px;border:1px solid #FECACA;">
+      <div style="font-size:11px;color:#B91C1C;font-weight:600;">⚠️ Cannot be undone. Other companies are not affected.</div>
+    </div>`);
+  setTimeout(()=>{const p=document.getElementById('reset-pin');if(p)p.focus();},200);
+}
+async function confirmReset(){
+  const pin=document.getElementById('reset-pin').value;
+  const err=document.getElementById('reset-err');
+  if(pin!==RESET_PIN){err.style.display='block';document.getElementById('reset-pin').value='';document.getElementById('reset-pin').focus();return;}
+  co().transactions=[];co().received=[];save();
+  closeModal();refreshDSM();refreshRecv();refreshReport();
+  toast(`${coInfo().name} data cleared ✓`);
+  setSyncStatus('syncing');
+  await apiPost({action:'resetCompany',companyId:db.activeCompanyId});
+  setSyncStatus('ok');
+}
+
+
+// ── STATUS OVERRIDES (synced to Google Sheets) ──────────────────────────────
+// In-memory cache — loaded from Sheets on startup, written back on every change
+function getOverrides(){
+  return db.overrides||(db.overrides={});
+}
+
+async function setOverride(id,status){
+  if(!db.overrides) db.overrides={};
+  if(status==='auto'){
+    delete db.overrides[id];
+    setSyncStatus('syncing');
+    await apiPost({action:'deleteOverride',txnId:id,fy:getCurrentFY()});
+  } else {
+    db.overrides[id]=status;
+    setSyncStatus('syncing');
+    await apiPost({action:'saveOverride',txnId:id,status,fy:getCurrentFY()});
+  }
+  setSyncStatus('ok');
+  refreshRecv();
+  if(curTab==='report') refreshReport();
+  toast('Status updated ✓');
+}
+
+// Reload overrides from Sheets into memory — call this on tab focus/refresh
+async function syncOverrides(){
+  try{
+    const remote=await fetch(`${SHEET_URL}?action=getAll&fy=${getCurrentFY()}`).then(r=>r.json());
+    if(!remote.error){
+      db.overrides=remote.overrides||{};
+      db.openingBalance=remote.openingBalance||0;
+      refreshRecv();
+      if(curTab==='report') refreshReport();
+      // Don't auto-regenerate ledger on sync — only on explicit user action
+      autoClearOverrides();
+      // Update OB input if ledger tab is open
+      if(curTab==='ledger'){
+        const obInput=document.getElementById('ob-input');
+        if(obInput && db.openingBalance) obInput.value=db.openingBalance;
+      }
+    }
+  }catch(e){}
+}
+
+// ── BANK HOLIDAY MANAGEMENT ──────────────────────────────────────────────────
+const HOLIDAY_KEY = 'pinelab_holidays';
+
+function getHolidays(){
+  try{ return JSON.parse(localStorage.getItem(HOLIDAY_KEY)||'[]'); }
+  catch{ return []; }
+}
+function saveHolidays(list){
+  localStorage.setItem(HOLIDAY_KEY, JSON.stringify(list));
+}
+
+// Returns true if date is a 2nd Saturday of its month
+// ALL Saturdays settle Monday (T+2), Sundays settle Monday
+// No 2nd Saturday special case needed — all Saturdays are same rule
+function isBankHoliday(dateStr){
+  const d=new Date(dateStr+'T00:00:00');
+  const dow=d.getDay();
+  if(dow===0) return true; // Sunday
+  if(dow===6) return true; // ALL Saturdays — banks don't process on Sunday
+  return getHolidays().includes(dateStr); // custom holidays
+}
+
+// Returns next settlement day:
+// Mon-Fri batch → T+1 (next calendar day, skip if holiday)
+// Saturday batch → Monday (skip Sun)
+// Sunday batch → Monday
+// Custom holidays → skip to next working day
+function nextBusinessDay(dateStr){
+  const d=new Date(dateStr+'T00:00:00');
+  d.setDate(d.getDate()+1);
+  let safety=0;
+  while(isBankHoliday(d.toISOString().split('T')[0])&&safety++<10){
+    d.setDate(d.getDate()+1);
+  }
+  return d.toISOString().split('T')[0];
+}
+
+function renderHolidays(){
+  const holidays=getHolidays().sort();
+  const wrap=document.getElementById('holiday-tags');
+  if(!wrap) return;
+  if(!holidays.length){
+    wrap.innerHTML='<span style="font-size:12px;color:var(--muted);">No custom holidays added</span>';
+    return;
+  }
+  wrap.innerHTML=holidays.map(h=>`
+    <span class="tid-tag" style="background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;">
+      ${fmtDate(h)}
+      <span class="rm" onclick="removeHoliday('${h}')" style="color:var(--red);">×</span>
+    </span>`).join('');
+}
+
+function addHoliday(){
+  const inp=document.getElementById('new-holiday');
+  const val=inp.value;
+  if(!val) return toast('Select a date','err');
+  const holidays=getHolidays();
+  if(holidays.includes(val)) return toast('Already added','err');
+  if(isBankHoliday(val)&&!holidays.includes(val)&&new Date(val+'T00:00:00').getDay()===0)
+    return toast('Sundays are already excluded','err');
+  holidays.push(val);
+  saveHolidays(holidays);
+  inp.value='';
+  renderHolidays();
+  // Refresh match since settlement dates changed
+  if(curTab==='recv') refreshRecv();
+  if(curTab==='report') refreshReport();
+  toast(`Holiday added: ${fmtDate(val)}`);
+}
+
+function removeHoliday(dateStr){
+  const holidays=getHolidays().filter(h=>h!==dateStr);
+  saveHolidays(holidays);
+  renderHolidays();
+  if(curTab==='recv') refreshRecv();
+  if(curTab==='report') refreshReport();
+  toast('Holiday removed');
+}
+
+
+// ── COMPUTE MATCH — Credit-by-credit sequential matching (T+1, weekend-aware) ──
+// Each received credit settles batches whose nextBusinessDay <= credit date.
+// Sat/Sun batches settle Monday. 2nd Saturday = bank holiday.
+// STRICT: leftover credit CANNOT settle same-day batches — carries to next credit.
+// ₹10 buffer for rounding differences. Manual overrides take priority.
+function computeMatch(){
+  const ov=getOverrides();
+  const allTxns=coFYTransactions();
+  const allRecv=coFYReceived();
+  const totalReceived=allRecv.reduce((s,r)=>s+(r.amount||0),0);
+  const totalBatches=allTxns.reduce((s,b)=>s+b.amount,0);
+  const TOLERANCE=10.00; // ₹10 buffer
+
+  const byDate=[...allTxns].sort((a,b)=>
+    a.date.localeCompare(b.date)||(parseInt(a.batch)-parseInt(b.batch))
+  );
+  const recvSorted=[...allRecv].sort((a,b)=>a.date.localeCompare(b.date));
+
+  const smap={};
+  const settled={};
+  byDate.forEach(b=>{ settled[b.id]=0; });
+
+  // Apply manual overrides first
+  byDate.filter(b=>ov[b.id]).forEach(b=>{
+    const st=ov[b.id];
+    smap[b.id]={status:st, receivedAmt:st==='settled'?b.amount:0, balance:st==='settled'?0:-b.amount};
+    if(st==='settled') settled[b.id]=b.amount;
+  });
+
+  // Process each credit strictly:
+  // 1. batch.date MUST be < credit.date (never settle same-day batches)
+  // 2. nextBusinessDay(batch.date) must be <= credit.date
+  // 3. Leftover does NOT spill into same-day batches
+  for(const credit of recvSorted){
+    let rem=credit.amount;
+    const eligible=byDate.filter(b=>
+      !ov[b.id] &&
+      b.date < credit.date &&
+      nextBusinessDay(b.date) <= credit.date
+    );
+    for(const b of eligible){
+      if(rem<=0) break;
+      const need=b.amount-settled[b.id];
+      if(need<=0) continue;
+      const pay=Math.min(rem, need);
+      settled[b.id]+=pay;
+      rem-=pay;
+    }
+    // Leftover rem is NOT applied to same-day batches
+  }
+
+  byDate.filter(b=>!ov[b.id]).forEach(b=>{
+    const s=settled[b.id]||0;
+    if(s>=b.amount-TOLERANCE){
+      smap[b.id]={status:'settled', receivedAmt:b.amount, balance:0};
+    } else if(s>0){
+      smap[b.id]={status:'partial', receivedAmt:s, balance:s-b.amount};
+    } else {
+      smap[b.id]={status:'pending', receivedAmt:0, balance:-b.amount};
+    }
+  });
+
+  const result=[...allTxns]
+    .sort((a,b)=>a.date.localeCompare(b.date)||(parseInt(a.batch)-parseInt(b.batch)))
+    .map(b=>({...b,...(smap[b.id]||{status:'pending',receivedAmt:0,balance:-b.amount})}));
+
+  const totalPending=result.filter(b=>b.status!=='settled').reduce((s,b)=>s+b.amount,0);
+
+  return{
+    batches:result,
+    totalBatches, totalReceived,
+    totalPending,
+    excess:Math.max(0,totalReceived-totalBatches),
+    pendingCount:result.filter(b=>b.status!=='settled').length,
+    settledCount:result.filter(b=>b.status==='settled').length
+  };
+}
+
+
+// ── LEDGER TAB ──────────────────────────────────────────────────────────────
+const LDG_OB_KEY='pinelab_ob';
+
+function initLedgerTab(){
+  // Set default dates
+  const today=todayStr();
+  const d=new Date();
+  const firstOfMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+  if(!document.getElementById('ldg-from').value) document.getElementById('ldg-from').value=firstOfMonth;
+  if(!document.getElementById('ldg-to').value)   document.getElementById('ldg-to').value=today;
+  // Populate TID filter
+  const sel=document.getElementById('ldg-tid');
+  const cur=sel.value||'ALL';
+  sel.innerHTML='<option value="ALL">All TIDs</option>'+(co().tids||[]).map(t=>`<option${t===cur?' selected':''}>${t}</option>`).join('');
+  // Load OB from Sheets (db.openingBalance set on load/sync), fallback localStorage
+  const ob = getLedgerOB();
+  document.getElementById('ob-input').value = ob || '';
+  // Also refresh OB from Sheets in background to ensure latest value
+  fetch(`${SHEET_URL}?action=getAll&fy=${getCurrentFY()}`)
+    .then(r=>r.json())
+    .then(remote=>{
+      if(!remote.error && remote.openingBalance){
+        db.openingBalance=remote.openingBalance;
+        document.getElementById('ob-input').value=remote.openingBalance;
+      }
+    }).catch(()=>{});
+}
+
+async function saveLedgerOB(){
+  const val=parseFloat(document.getElementById('ob-input').value)||0;
+  const fy=getCurrentFY();
+  // Save to localStorage as cache
+  localStorage.setItem(LDG_OB_KEY+'_'+(db.activeCompanyId||'')+'_'+fy, val);
+  // Save to Google Sheets so all devices sync
+  setSyncStatus('syncing');
+  await apiPost({action:'saveOpeningBalance', amount:val, fy});
+  setSyncStatus('ok');
+  toast('Opening balance saved — '+fmtAmt(val));
+}
+
+function getLedgerOB(){
+  const fy=getCurrentFY();
+  // Sheets value takes priority (set on load and sync)
+  if(db.openingBalance!==undefined&&db.openingBalance!==null&&db.openingBalance!==0)
+    return db.openingBalance;
+  // Fall back to localStorage
+  const saved=localStorage.getItem(LDG_OB_KEY+'_'+(db.activeCompanyId||'')+'_'+fy)
+    || localStorage.getItem(LDG_OB_KEY+'_'+(db.activeCompanyId||''));
+  return saved?parseFloat(saved):0;
+}
+
+function generateLedger(){
+  const from=document.getElementById('ldg-from').value;
+  const to=document.getElementById('ldg-to').value;
+  const tid=document.getElementById('ldg-tid').value;
+  if(!from||!to)return toast('Select date range','err');
+  if(from>to)return toast('From must be before To','err');
+
+  let txns=co().transactions.filter(t=>t.date>=from&&t.date<=to);
+  let recv=co().received.filter(r=>r.date>=from&&r.date<=to);
+  if(tid!=='ALL')txns=txns.filter(t=>t.tid===tid);
+
+  const ob=getLedgerOB();
+  const totalDr=txns.reduce((s,t)=>s+t.amount,0);
+  const totalCr=recv.reduce((s,r)=>s+r.amount,0);
+
+  // Use override-aware pending from computeMatch so manual status overrides
+  // (e.g. marking #813/#814 settled, #179/#815/#816 pending) are reflected here
+  const m=computeMatch();
+  // Filter match result to only batches within the ledger date/TID range
+  const inRange=new Set(txns.map(t=>t.id));
+  const pending=m.batches.filter(b=>inRange.has(b.id)&&b.status!=='settled').reduce((s,b)=>s+b.amount,0);
+  // Closing balance = OB - pending (what we still owe, from OB perspective)
+  const closingBal=ob>0 ? ob-pending : -pending;
+
+  document.getElementById('ls-ob').textContent=fmtAmt(ob);
+  document.getElementById('ls-dr').textContent=fmtAmt(totalDr);
+  document.getElementById('ls-cr').textContent=fmtAmt(totalCr);
+  document.getElementById('ls-pending').textContent=fmtAmt(pending);
+  const cbEl=document.getElementById('ls-cb');
+  cbEl.textContent=fmtAmt(pending)+' Dr';
+  cbEl.style.color='var(--red)';
+
+  // Store for export
+  window._ldgRows=[
+    ...txns.map(t=>({...t,type:'debit',sortKey:t.date+'_'+String(t.batch).padStart(6,'0')})),
+    ...recv.map(r=>({...r,type:'credit',sortKey:r.date+'_ZZ'}))
+  ].sort((a,b)=>a.sortKey.localeCompare(b.sortKey));
+  window._ldgMeta={ob,totalDr,totalCr,closingBal:pending,from,to};
+
+  // Build rows
+  let bal=ob;
+  let html=`<div class="ledger-row opening">
+    <span class="lr-date"></span><span></span>
+    <span style="font-weight:800;color:var(--navy);grid-column:3;font-size:12px;">OPENING BALANCE</span>
+    <span></span><span></span>
+    <span class="lr-balance" style="color:var(--blue);">${fmtAmt(ob)}</span>
+  </div>`;
+
+  window._ldgRows.forEach(e=>{
+    const isD=e.type==='debit';
+    if(isD) bal-=e.amount; else bal+=e.amount;
+    const balColor=bal<0?'color:var(--red);':bal===0?'color:var(--muted);':'color:var(--navy);';
+    const balLabel=fmtAmt(Math.abs(bal))+(bal<0?' Dr':bal>0?' Cr':'');
+    html+=`<div class="ledger-row">
+      <span class="lr-date">${fmtDate(e.date)}</span>
+      <span class="lr-batch">${e.batch?'#'+e.batch:'—'}</span>
+      <span style="font-size:12px;font-weight:600;">${isD?(e.tid||'Batch'):'Credit Received'}${e.note?'<div style="font-size:10px;color:var(--muted);">'+e.note+'</div>':''}</span>
+      <span class="lr-debit">${isD?fmtAmt(e.amount):'—'}</span>
+      <span class="lr-credit">${!isD?fmtAmt(e.amount):'—'}</span>
+      <span class="lr-balance" style="${balColor}">${balLabel}</span>
+    </div>`;
+  });
+
+  const maxT=Math.max(totalDr,totalCr);
+  html+=`<div class="ledger-row subtotal">
+    <span></span><span></span>
+    <span style="font-weight:800;color:var(--navy);">SUB TOTAL</span>
+    <span class="lr-debit">${fmtAmt(totalDr)}</span>
+    <span class="lr-credit">${fmtAmt(totalCr)}</span>
+    <span></span>
+  </div>
+  <div class="ledger-row total-row">
+    <span></span><span></span>
+    <span>TOTAL</span>
+    <span style="font-family:'Roboto Mono',monospace;text-align:right;color:#FCA5A5;">${fmtAmt(maxT)}</span>
+    <span style="font-family:'Roboto Mono',monospace;text-align:right;color:#6EE7B7;">${fmtAmt(maxT)}</span>
+    <span></span>
+  </div>
+  <div class="ledger-row closing">
+    <span></span><span></span>
+    <span style="font-weight:800;">CLOSING BALANCE <span style="font-size:10px;opacity:.7;font-weight:600;">(Unsettled Batches)</span></span>
+    <span></span><span></span>
+    <span class="lr-balance" style="color:#FCA5A5;">${fmtAmt(pending)} Dr</span>
+  </div>`;
+
+  document.getElementById('ldg-rows').innerHTML=html;
+  document.getElementById('ldg-output').style.display='block';
+  document.getElementById('ldg-output').scrollIntoView({behavior:'smooth'});
+  toast('Ledger generated ✓');
+}
+
+function exportLedgerExcel(){
+  if(!window._ldgRows||!window._ldgRows.length)return toast('Generate ledger first','err');
+  const{ob,totalDr,totalCr,closingBal,from,to}=window._ldgMeta;
+  let bal=ob;
+  const data=[['Date','Batch #','TID / Particulars','Note','Debit (₹)','Credit (₹)','Balance (₹)']];
+  data.push(['','','OPENING BALANCE','','','',ob]);
+  window._ldgRows.forEach(e=>{
+    const isD=e.type==='debit';
+    if(isD) bal-=e.amount; else bal+=e.amount;
+    data.push([fmtDate(e.date),e.batch?'#'+e.batch:'—',isD?(e.tid||'Batch'):'Credit Received',e.note||'',isD?e.amount:'',!isD?e.amount:'',bal]);
+  });
+  data.push([]);
+  data.push(['SUB TOTAL','','','',totalDr,totalCr,'']);
+  data.push(['CLOSING BALANCE','','','','','',closingBal]);
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[12,10,18,16,13,13,14].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb,ws,'Ledger');
+  XLSX.writeFile(wb,`${coInfo().name||'PineLab'}_Ledger_${from}_to_${to}.xlsx`);
+  toast('Excel downloaded!');
+}
+
+function exportLedgerPDF(){
+  if(!window._ldgRows||!window._ldgRows.length)return toast('Generate ledger first','err');
+  const{ob,totalDr,totalCr,closingBal,from,to}=window._ldgMeta;
+  const cname=coInfo().name||'PineLab';
+  let bal=ob;
+  const maxT=Math.max(totalDr,totalCr);
+  let rows=`<tr style="background:#EFF6FF;"><td colspan="4" style="font-weight:800;">OPENING BALANCE</td><td></td><td></td><td style="font-family:monospace;font-weight:700;color:#1B5FBF;">₹${ob.toLocaleString('en-IN',{minimumFractionDigits:2})}</td></tr>`;
+  window._ldgRows.forEach(e=>{
+    const isD=e.type==='debit';
+    if(isD) bal-=e.amount; else bal+=e.amount;
+    const bc=bal<0?'#EF4444':bal===0?'#888':'#0B1E3D';
+    const balLabel=`₹${Math.abs(bal).toLocaleString('en-IN',{minimumFractionDigits:2})}${bal<0?' Dr':bal>0?' Cr':''}`;
+    rows+=`<tr><td>${fmtDate(e.date)}</td><td style="font-family:monospace;font-weight:700;">${e.batch?'#'+e.batch:'—'}</td><td style="font-weight:600;">${isD?(e.tid||'Batch'):'Credit Received'}</td><td style="font-size:11px;color:#7A90B0;">${e.note||''}</td><td style="font-family:monospace;font-weight:700;color:#EF4444;">${isD?'₹'+e.amount.toLocaleString('en-IN',{minimumFractionDigits:2}):''}</td><td style="font-family:monospace;font-weight:700;color:#10B981;">${!isD?'₹'+e.amount.toLocaleString('en-IN',{minimumFractionDigits:2}):''}</td><td style="font-family:monospace;font-weight:700;color:${bc};">${balLabel}</td></tr>`;
+  });
+  rows+=`<tr style="background:#F0F4FA;font-weight:700;"><td colspan="4">SUB TOTAL</td><td style="font-family:monospace;color:#EF4444;">₹${totalDr.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="font-family:monospace;color:#10B981;">₹${totalCr.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td></td></tr>
+  <tr style="background:#142952;color:#fff;font-weight:700;"><td colspan="4">TOTAL</td><td style="font-family:monospace;">₹${maxT.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="font-family:monospace;">₹${maxT.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td></td></tr>
+  <tr style="background:#0B1E3D;color:#fff;font-weight:800;"><td colspan="6">CLOSING BALANCE (Unsettled Batches)</td><td style="font-family:monospace;color:#FCA5A5;">₹${closingBal.toLocaleString('en-IN',{minimumFractionDigits:2})} Dr</td></tr>`;
+  const _ledHtml=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${cname} Ledger</title>
+  <style>body{font-family:Arial,sans-serif;font-size:12px;padding:24px;color:#0B1E3D;}h1{font-size:18px;font-weight:800;margin-bottom:3px;}.meta{color:#7A90B0;font-size:11px;margin-bottom:14px;}
+  .sum{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;}.sbox{background:#F8FAFD;border:1px solid #DDE5F0;border-radius:8px;padding:10px;flex:1;min-width:80px;text-align:center;}.sval{font-size:13px;font-weight:700;font-family:monospace;}.slbl{font-size:9px;color:#7A90B0;text-transform:uppercase;margin-top:2px;}
+  table{width:100%;border-collapse:collapse;}th{background:#0B1E3D;color:#fff;padding:7px 9px;text-align:left;font-size:10px;text-transform:uppercase;}td{padding:7px 9px;border-bottom:1px solid #DDE5F0;font-size:11px;}tr:nth-child(even) td{background:#F8FAFD;}
+  .btn{background:#1B5FBF;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;margin:8px 8px 8px 0;}
+  .btn-back{background:#6B7280;}.btn-wrap{margin-top:16px;}@media print{.btn-wrap{display:none;}}</style></head><body>
+  <div class="btn-wrap">
+    <button class="btn btn-back" onclick="window.close()">← Back to App</button>
+    <button class="btn" onclick="window.print()">🖨 Print / Save as PDF</button>
+  </div>
+  <h1>🏦 ${cname.toUpperCase()} — E-POS TRANSACTION LEDGER</h1>
+  <div class="meta">Period: ${fmtDate(from)} to ${fmtDate(to)} · Generated: ${new Date().toLocaleString('en-IN')}</div>
+  <div class="sum">
+    <div class="sbox"><div class="sval" style="color:#1B5FBF;">₹${ob.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Opening Bal</div></div>
+    <div class="sbox"><div class="sval" style="color:#EF4444;">₹${totalDr.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Total Debit</div></div>
+    <div class="sbox"><div class="sval" style="color:#10B981;">₹${totalCr.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Total Credit</div></div>
+    <div class="sbox"><div class="sval" style="color:#EF4444;">₹${closingBal.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Pending (Unsettled)</div></div>
+  </div>
+  <table><thead><tr><th>Date</th><th>Batch #</th><th>TID / Particulars</th><th>Note</th><th>Debit (Dr)</th><th>Credit (Cr)</th><th>Balance</th></tr></thead>
+  <tbody>${rows}</tbody></table>
+  </body></html>`;
+  const _ledWin=window.open('','_blank');
+  if(_ledWin){
+    _ledWin.document.write(_ledHtml);
+    _ledWin.document.close();
+    toast('Ledger opened — use ← Back to return');
+  }
+}
+
+// ── FINANCIAL YEAR ──────────────────────────────────────────────────────────
+// FY runs Apr 1 → Mar 31. FY2526 = Apr 2025 to Mar 2026.
+function getFYFromDate(d){
+  const dt=d?new Date(d):new Date();
+  const y=dt.getFullYear(), m=dt.getMonth(); // 0=Jan
+  // FY2526 = Apr 2025 to Mar 2026 → last 2 digits of each year
+  const startY = m>=3 ? y : y-1;
+  const endY   = startY+1;
+  return String(startY).slice(-2)+String(endY).slice(-2);
+}
+function getCurrentFY(){
+  const stored=localStorage.getItem('pinelab_fy');
+  // Validate stored FY is a proper 4-digit string
+  if(stored && /^\d{4}$/.test(stored)) return stored;
+  // Clear invalid stored value
+  localStorage.removeItem('pinelab_fy');
+  return getFYFromDate(new Date());
+}
+
+// Called after data loads — if current FY has no transactions, switch to previous FY
+function autoSelectFY(){
+  const curFY=getCurrentFY();
+  const curTxns=coFYTransactions();
+  if(curTxns.length===0){
+    // Try previous FY
+    const d=new Date();
+    const prevFYStart=new Date(d.getFullYear()-1, 3, 1); // Apr 1 of prev year
+    const prevFY=getFYFromDate(prevFYStart);
+    const prevTxns=(co().transactions||[]).filter(t=>{
+      const s=fyStart(prevFY), e=fyEnd(prevFY);
+      return t.date>=s && t.date<=e;
+    });
+    if(prevTxns.length>0 && curFY!==prevFY){
+      // Auto-switch to previous FY silently
+      localStorage.setItem('pinelab_fy', prevFY);
+      updateFYBanner();
+      toast(`Showing FY ${fmtFY(prevFY)} — tap 🗓 Switch FY to change`);
+    }
+  }
+}
+function fmtFY(fy){
+  // '2526' → 'FY 2025-26'
+  if(!fy||fy.length!==4) return 'FY '+fy;
+  return `FY 20${fy.slice(0,2)}-${fy.slice(2)}`;
+}
+function setActiveFY(fy){
+  localStorage.setItem('pinelab_fy',fy);
+  document.getElementById('fy-label').textContent=fmtFY(fy);
+  // Filter transactions/received to this FY only
+  refreshDSM();
+  if(curTab==='recv') refreshRecv();
+  if(curTab==='report'){populateRepTid();refreshReport();}
+}
+
+// Override co() data getters to filter by active FY
+function fyStart(fy){ return `20${fy.slice(0,2)}-04-01`; }
+function fyEnd(fy){   return `20${fy.slice(2)}-03-31`; }
+
+function coFYTransactions(){
+  const fy=getCurrentFY();
+  const s=fyStart(fy), e=fyEnd(fy);
+  return (co().transactions||[]).filter(t=>t.date>=s&&t.date<=e);
+}
+function coFYReceived(){
+  const fy=getCurrentFY();
+  const s=fyStart(fy), e=fyEnd(fy);
+  return (co().received||[]).filter(r=>r.date>=s&&r.date<=e);
+}
+
+function getAvailableFYs(){
+  // Derive all FYs from transaction/received dates
+  const all=[...(co().transactions||[]),...(co().received||[])];
+  const fys=new Set(all.map(t=>getFYFromDate(t.date)));
+  fys.add(getCurrentFY());
+  fys.add(getFYFromDate(new Date())); // always include current
+  return [...fys].sort().reverse();
+}
+
+function updateFYBanner(){
+  const fy=getCurrentFY();
+  document.getElementById('fy-label').textContent=fmtFY(fy);
+}
+
+function showFYSwitcher(){
+  const fys=getAvailableFYs();
+  const cur=getCurrentFY();
+  const opts=fys.map(fy=>`
+    <div onclick="switchFY('${fy}')" style="padding:13px 16px;border-radius:11px;border:1.5px solid ${fy===cur?'var(--blue)':'var(--border)'};background:${fy===cur?'#EFF6FF':'var(--card)'};margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:15px;font-weight:700;color:${fy===cur?'var(--blue)':'var(--text)'};">${fmtFY(fy)}</span>
+      <span style="font-size:12px;color:var(--muted);">${(co().transactions||[]).filter(t=>getFYFromDate(t.date)===fy).length} batches ${fy===cur?'✅':''}</span>
+    </div>`).join('');
+
+  // Next FY option
+  const now=new Date();
+  const nextFY=getFYFromDate(new Date(now.getFullYear()+(now.getMonth()>=3?1:0),3,1));
+
+  showModal(`
+    <div style="font-size:16px;font-weight:700;margin-bottom:6px;">🗓 Financial Year</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Data is filtered by FY. Switching archives current year's view — all data stays in Sheets.</div>
+    ${opts}
+    ${!fys.includes(nextFY)?`
+    <div style="border-top:1px dashed var(--border);margin:12px 0;padding-top:12px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:700;text-transform:uppercase;">START NEW YEAR</div>
+      <div onclick="switchFY('${nextFY}')" style="padding:13px 16px;border-radius:11px;border:1.5px dashed var(--green);background:#F0FDF4;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:15px;font-weight:700;color:var(--green);">➕ ${fmtFY(nextFY)}</span>
+        <span style="font-size:12px;color:var(--green);">Start fresh</span>
+      </div>
+    </div>`:''}
+    <button class="btn btn-outline" onclick="closeModal()" style="margin-top:8px;width:100%;">Close</button>`);
+}
+
+function switchFY(fy){
+  closeModal();
+  setActiveFY(fy);
+  toast(`Switched to ${fmtFY(fy)}`);
+}
+
+// ── DEBUG ───────────────────────────────────────────────────────────────────
+async function showDebug(){
+  showModal(`<div style="font-size:15px;font-weight:700;margin-bottom:12px;">🔍 Sync Debug</div>
+    <div id="debug-body" style="font-size:12px;font-family:monospace;background:#F0F4FA;border-radius:8px;padding:12px;word-break:break-all;line-height:1.8;">
+      ⏳ Fetching from Sheets...
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="btn btn-primary btn-sm" onclick="runDebug()">🔄 Refresh</button>
+      <button class="btn btn-green btn-sm" onclick="loadFromSheet().then(runDebug)">⬇️ Force Reload</button>
+      <button class="btn btn-outline btn-sm" onclick="closeModal()">Close</button>
+    </div>`);
+  runDebug();
+}
+
+async function runDebug(){
+  const el=document.getElementById('debug-body');
+  if(!el)return;
+  el.innerHTML='⏳ Fetching...';
+  try{
+    const remote=await fetch(`${SHEET_URL}?action=getAll&fy=${getCurrentFY()}`).then(r=>r.json());
+    const ov=remote.overrides||{};
+    const ovCount=Object.keys(ov).length;
+    const txnCount=(remote.transactions||[]).length;
+    const recvCount=(remote.received||[]).length;
+    const dbOvCount=Object.keys(db.overrides||{}).length;
+    el.innerHTML=`
+      <b>📡 From Sheets:</b><br>
+      Transactions: ${txnCount}<br>
+      Received: ${recvCount}<br>
+      Overrides in Sheet: ${ovCount}<br>
+      Override data: ${JSON.stringify(ov)}<br><br>
+      <b>💾 In Memory (db):</b><br>
+      db.overrides count: ${dbOvCount}<br>
+      db.overrides: ${JSON.stringify(db.overrides||{})}<br>
+      db total transactions: ${(co().transactions||[]).length}<br>
+      Active FY: ${getCurrentFY()}<br>
+      FY transactions: ${coFYTransactions().length}<br>
+      FY received: ${coFYReceived().length}<br>
+      FY date range: ${fyStart(getCurrentFY())} → ${fyEnd(getCurrentFY())}<br><br>
+      <b>📦 localStorage:</b><br>
+      epos_v5 overrides: ${JSON.stringify(JSON.parse(localStorage.getItem('epos_v5')||'{}').overrides||'none')}<br>
+      Stale keys: ${['pinelab_overrides_co_pinelab','pinelab_overrides_'].filter(k=>localStorage.getItem(k)).join(', ')||'none'}<br>
+      Stored FY: ${localStorage.getItem('pinelab_fy')||'(auto)'}
+    `;
+  }catch(e){
+    el.innerHTML='❌ Error: '+e.message;
+  }
+}
+
+
+// ── DASHBOARD ────────────────────────────────────────────────────────────────
+function refreshDashboard(){
+  const m=computeMatch();
+  const today=todayStr();
+  const todayTxns=coFYTransactions().filter(t=>t.date===today);
+  const todayTotal=todayTxns.reduce((s,t)=>s+t.amount,0);
+
+  // Pending hero
+  document.getElementById('dash-pending').textContent=fmtAmt(m.totalPending);
+  document.getElementById('dash-pending-sub').textContent=`${m.pendingCount} unsettled batch${m.pendingCount!==1?'es':''}`;
+
+  // Stats grid
+  document.getElementById('dash-today-total').textContent=fmtAmt(todayTotal);
+  document.getElementById('dash-unsettled-count').textContent=m.pendingCount;
+  document.getElementById('dash-total-recv').textContent=fmtAmt(m.totalReceived);
+  document.getElementById('dash-total-batches').textContent=fmtAmt(m.totalBatches);
+
+  // FY label
+  document.getElementById('dash-fy').textContent=fmtFY(getCurrentFY());
+
+  // Pending batches list
+  const pl=document.getElementById('dash-pending-list');
+  const pending=m.batches.filter(b=>b.status!=='settled');
+  if(!pending.length){
+    pl.innerHTML='<div class="empty" style="padding:20px;"><div class="ico">✅</div><p>All batches settled!</p></div>';
+    return;
+  }
+  pl.innerHTML=pending.map(b=>`
+    <div class="dash-batch-row">
+      <div style="display:flex;align-items:center;flex:1;">
+        <div class="dash-status-dot" style="background:${b.status==='partial'?'#F97316':'#EF4444'};"></div>
+        <div>
+          <div style="font-size:13px;font-weight:700;font-family:'Roboto Mono',monospace;">Batch #${b.batch}</div>
+          <div style="font-size:11px;color:var(--muted);">${b.tid} · ${fmtDate(b.date)}</div>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:14px;font-weight:700;font-family:'Roboto Mono',monospace;color:var(--red);">${fmtAmt(b.amount)}</div>
+        <div style="font-size:10px;color:var(--muted);">${b.status==='partial'?'⚠️ Partial':'❌ Pending'}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── AUTO-CLEAR OVERRIDES ──────────────────────────────────────────────────────
+// After computeMatch, if a batch is naturally settled but has a 'pending' override → clear it
+async function autoClearOverrides(){
+  const ov=getOverrides();
+  const m=computeMatch();
+  const toClear=[];
+  m.batches.forEach(b=>{
+    // If override says pending but algorithm says settled → clear override
+    if(ov[b.id]==='pending' && b.status==='settled'){
+      toClear.push(b.id);
+    }
+  });
+  if(!toClear.length) return;
+  for(const id of toClear){
+    delete db.overrides[id];
+    await apiPost({action:'deleteOverride', txnId:id, fy:getCurrentFY()});
+  }
+  if(toClear.length>0){
+    toast(`Auto-cleared ${toClear.length} resolved override${toClear.length>1?'s':''} ✓`);
+    refreshRecv();
+    if(curTab==='report') refreshReport();
+    if(curTab==='dash') refreshDashboard();
+  }
+}
+
+// ── SEARCH / FILTER DSM ───────────────────────────────────────────────────────
+let _searchQuery='';
+function filterDSM(q){
+  _searchQuery=q.toLowerCase().trim();
+  refreshDSM();
+}
+
+// ── SWIPE TO DELETE ──────────────────────────────────────────────────────────
+let _swipeStartX=0, _swipeEl=null;
+function initSwipe(el, id){
+  el.addEventListener('touchstart', e=>{
+    _swipeStartX=e.touches[0].clientX;
+    _swipeEl=el;
+  },{passive:true});
+  el.addEventListener('touchend', e=>{
+    const dx=_swipeStartX-e.changedTouches[0].clientX;
+    if(dx>60){
+      // Swipe left — show delete
+      document.querySelectorAll('.entry-item.swiped').forEach(x=>{if(x!==el)x.classList.remove('swiped');});
+      el.classList.add('swiped');
+    } else if(dx<-30){
+      el.classList.remove('swiped');
+    }
+  },{passive:true});
+}
+
+// ── DAILY LEDGER DOWNLOAD AT 12PM ────────────────────────────────────────────
+let _ledgerTimerSet=false;
+function scheduleDailyLedger(){
+  if(_ledgerTimerSet) return;
+  _ledgerTimerSet=true;
+  function msUntilNoon(){
+    const now=new Date();
+    const noon=new Date();
+    noon.setHours(12,0,0,0);
+    if(now>=noon) noon.setDate(noon.getDate()+1); // next noon
+    return noon-now;
+  }
+  function triggerLedger(){
+    autoDownloadLedger();
+    // Schedule next day
+    setTimeout(triggerLedger, msUntilNoon());
+  }
+  setTimeout(triggerLedger, msUntilNoon());
+}
+
+function autoDownloadLedger(){
+  // Build ledger data for current FY
+  const fy=getCurrentFY();
+  const fyS=fyStart(fy), fyE=fyEnd(fy);
+  const txns=co().transactions.filter(t=>t.date>=fyS&&t.date<=fyE);
+  const recv=co().received.filter(r=>r.date>=fyS&&r.date<=fyE);
+  if(!txns.length&&!recv.length) return; // nothing to download
+  const ob=getLedgerOB();
+  const totalDr=txns.reduce((s,t)=>s+t.amount,0);
+  const totalCr=recv.reduce((s,r)=>s+r.amount,0);
+  const m=computeMatch();
+  const inRange=new Set(txns.map(t=>t.id));
+  const pending=m.batches.filter(b=>inRange.has(b.id)&&b.status!=='settled').reduce((s,b)=>s+b.amount,0);
+
+  const combined=[
+    ...txns.map(t=>({...t,type:'debit',sortKey:t.date+'_'+String(t.batch).padStart(6,'0')})),
+    ...recv.map(r=>({...r,type:'credit',sortKey:r.date+'_ZZ'}))
+  ].sort((a,b)=>a.sortKey.localeCompare(b.sortKey));
+
+  let bal=ob;
+  let rows=`<tr style="background:#EFF6FF;"><td colspan="4" style="font-weight:800;">OPENING BALANCE</td><td></td><td></td><td style="font-family:monospace;font-weight:700;color:#1B5FBF;">₹${ob.toLocaleString('en-IN',{minimumFractionDigits:2})}</td></tr>`;
+  combined.forEach(e=>{
+    const isD=e.type==='debit';
+    if(isD) bal-=e.amount; else bal+=e.amount;
+    const bc=bal<0?'#EF4444':bal===0?'#888':'#0B1E3D';
+    const balLabel=`₹${Math.abs(bal).toLocaleString('en-IN',{minimumFractionDigits:2})}${bal<0?' Dr':bal>0?' Cr':''}`;
+    rows+=`<tr><td>${fmtDate(e.date)}</td><td style="font-family:monospace;font-weight:700;">${e.batch?'#'+e.batch:'—'}</td><td style="font-weight:600;">${isD?(e.tid||'Batch'):'Credit Received'}</td><td style="font-size:11px;color:#7A90B0;">${e.note||''}</td><td style="font-family:monospace;color:#EF4444;">${isD?'₹'+e.amount.toLocaleString('en-IN',{minimumFractionDigits:2}):''}</td><td style="font-family:monospace;color:#10B981;">${!isD?'₹'+e.amount.toLocaleString('en-IN',{minimumFractionDigits:2}):''}</td><td style="font-family:monospace;color:${bc};">${balLabel}</td></tr>`;
+  });
+  rows+=`<tr style="background:#0B1E3D;color:#fff;font-weight:800;"><td colspan="6">CLOSING BALANCE (Unsettled)</td><td style="font-family:monospace;color:#FCA5A5;">₹${pending.toLocaleString('en-IN',{minimumFractionDigits:2})} Dr</td></tr>`;
+
+  const html=`<!DOCTYPE html><html><head><title>Card EPOS Checker — Daily Ledger ${todayStr()}</title>
+  <style>body{font-family:Arial,sans-serif;font-size:12px;padding:20px;}h1{font-size:16px;margin-bottom:4px;}
+  .meta{color:#7A90B0;font-size:11px;margin-bottom:12px;}
+  .sum{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .sbox{background:#F8FAFD;border:1px solid #DDE5F0;border-radius:8px;padding:8px 12px;text-align:center;}
+  .sval{font-size:13px;font-weight:700;font-family:monospace;}.slbl{font-size:9px;color:#7A90B0;text-transform:uppercase;}
+  table{width:100%;border-collapse:collapse;}th{background:#0B1E3D;color:#fff;padding:7px;text-align:left;font-size:10px;}
+  td{padding:7px;border-bottom:1px solid #DDE5F0;font-size:11px;}tr:nth-child(even) td{background:#F8FAFD;}</style></head>
+  <body><h1>🏦 Card EPOS Checker — Daily Ledger</h1>
+  <div class="meta">Generated: ${new Date().toLocaleString('en-IN')} · FY ${fmtFY(fy)}</div>
+  <div class="sum">
+    <div class="sbox"><div class="sval" style="color:#1B5FBF;">₹${ob.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Opening Bal</div></div>
+    <div class="sbox"><div class="sval" style="color:#EF4444;">₹${totalDr.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Total Debit</div></div>
+    <div class="sbox"><div class="sval" style="color:#10B981;">₹${totalCr.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Total Credit</div></div>
+    <div class="sbox"><div class="sval" style="color:#EF4444;">₹${pending.toLocaleString('en-IN',{minimumFractionDigits:2})}</div><div class="slbl">Pending</div></div>
+  </div>
+  <table><thead><tr><th>Date</th><th>Batch</th><th>TID/Particulars</th><th>Note</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead>
+  <tbody>${rows}</tbody></table></body></html>`;
+
+  // Download as HTML file (auto, no dialog)
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`CardEPOS_Ledger_${todayStr()}.html`;
+  a.style.display='none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);document.body.removeChild(a);},1000);
+  console.log('📊 Daily ledger downloaded at noon');
+}
+
+// ── PWA SERVICE WORKER + INSTALL PROMPT ────────────────────────────────────
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js')
+      .then(reg=>{
+        console.log('SW registered:', reg.scope);
+        // Listen for messages from SW (e.g. download ledger)
+        navigator.serviceWorker.addEventListener('message', e=>{
+          if(e.data&&e.data.type==='DOWNLOAD_LEDGER') autoDownloadLedger();
+        });
+      })
+      .catch(err=>console.log('SW error:', err));
+  });
+}
+
+// Install prompt — show "Add to Home Screen" button
+let _installPrompt=null;
+window.addEventListener('beforeinstallprompt', e=>{
+  e.preventDefault();
+  _installPrompt=e;
+  // Show install banner after 3 seconds
+  setTimeout(showInstallBanner, 3000);
+});
+
+function showInstallBanner(){
+  if(!_installPrompt) return;
+  // Don't show if already installed
+  if(window.matchMedia('(display-mode: standalone)').matches) return;
+  const banner=document.createElement('div');
+  banner.id='install-banner';
+  banner.style.cssText='position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#0B1E3D;color:#fff;padding:12px 18px;border-radius:14px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:998;max-width:340px;width:calc(100% - 32px);';
+  banner.innerHTML=`
+    <img src="icon-192.png" style="width:36px;height:36px;border-radius:8px;flex-shrink:0;">
+    <div style="flex:1;">
+      <div style="font-size:13px;font-weight:700;">Install Card EPOS Checker</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.6);">Add to home screen for quick access</div>
+    </div>
+    <button onclick="doInstall()" style="background:#F59E0B;border:none;color:#0B1E3D;font-weight:800;padding:8px 14px;border-radius:9px;cursor:pointer;font-size:12px;white-space:nowrap;">Install</button>
+    <button onclick="document.getElementById('install-banner').remove()" style="background:transparent;border:none;color:rgba(255,255,255,.5);font-size:18px;cursor:pointer;padding:0 4px;">×</button>
+  `;
+  document.body.appendChild(banner);
+  // Auto-hide after 8 seconds
+  setTimeout(()=>banner&&banner.remove(), 8000);
+}
+
+async function doInstall(){
+  if(!_installPrompt) return;
+  _installPrompt.prompt();
+  const {outcome}=await _installPrompt.userChoice;
+  _installPrompt=null;
+  document.getElementById('install-banner')?.remove();
+  if(outcome==='accepted') toast('App installed! ✅ Check your home screen');
+}
+
+// iOS install hint (Safari doesn't support beforeinstallprompt)
+if(/iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.navigator.standalone){
+  setTimeout(()=>{
+    const banner=document.createElement('div');
+    banner.style.cssText='position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#0B1E3D;color:#fff;padding:12px 16px;border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:998;max-width:320px;width:calc(100% - 32px);text-align:center;';
+    banner.innerHTML=`
+      <img src="icon-192.png" style="width:48px;height:48px;border-radius:12px;margin-bottom:8px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Install Card EPOS Checker</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.65);line-height:1.5;">Tap <strong>Share</strong> (□↑) then <strong>"Add to Home Screen"</strong></div>
+      <button onclick="this.parentElement.remove()" style="margin-top:10px;background:rgba(255,255,255,.15);border:none;color:#fff;padding:7px 20px;border-radius:8px;cursor:pointer;font-size:12px;">Got it</button>
+    `;
+    document.body.appendChild(banner);
+    setTimeout(()=>banner&&banner.remove(), 10000);
+  }, 3000);
+}
+
+// Load everything from Google Sheets on startup
+
+// ── PULL TO REFRESH ──────────────────────────────────────────────────────────
+let _ptrStartY=0,_ptrActive=false;
+document.addEventListener('touchstart',e=>{if(window.scrollY===0)_ptrStartY=e.touches[0].clientY;},{passive:true});
+document.addEventListener('touchend',e=>{
+  const dy=e.changedTouches[0].clientY-_ptrStartY;
+  if(dy>80&&window.scrollY===0&&!_ptrActive){
+    _ptrActive=true;
+    const ind=document.getElementById('ptr-indicator');
+    if(ind){ind.style.display='block';ind.textContent='↓ Syncing...';}
+    loadFromSheet().finally(()=>{
+      const ind2=document.getElementById('ptr-indicator');
+      if(ind2)ind2.style.display='none';
+      _ptrActive=false;
+    });
+  }
+  _ptrStartY=0;
+},{passive:true});
+
+// ── MONTH-WISE SUMMARY ───────────────────────────────────────────────────────
+function generateMonthSummary(){
+  const fy=getCurrentFY();
+  const txns=coFYTransactions();
+  const recv=coFYReceived();
+  const m=computeMatch();
+  const statusMap={};
+  m.batches.forEach(b=>statusMap[b.id]=b.status);
+  const months={};
+  txns.forEach(t=>{
+    const mo=t.date.slice(0,7);
+    if(!months[mo])months[mo]={batchAmt:0,recvAmt:0,pendingAmt:0,count:0};
+    months[mo].batchAmt+=t.amount;months[mo].count++;
+    if(statusMap[t.id]!=='settled')months[mo].pendingAmt+=t.amount;
+  });
+  recv.forEach(r=>{const mo=r.date.slice(0,7);if(!months[mo])months[mo]={batchAmt:0,recvAmt:0,pendingAmt:0,count:0};months[mo].recvAmt+=r.amount;});
+  const monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const rows=Object.keys(months).sort().map(mo=>{
+    const d=months[mo];const[y,m2]=mo.split('-');
+    return`<tr><td><strong>${monthNames[parseInt(m2)-1]} ${y}</strong></td>
+    <td style="font-family:monospace;color:#1B5FBF;">₹${(d.batchAmt||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+    <td style="font-family:monospace;color:#10B981;">₹${(d.recvAmt||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+    <td style="font-family:monospace;color:#EF4444;">₹${(d.pendingAmt||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+    <td>${d.count}</td></tr>`;
+  }).join('');
+  const totB=Object.values(months).reduce((s,m)=>s+m.batchAmt,0);
+  const totR=Object.values(months).reduce((s,m)=>s+m.recvAmt,0);
+  const totP=Object.values(months).reduce((s,m)=>s+m.pendingAmt,0);
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Month Summary</title>
+  <style>body{font-family:Arial;font-size:12px;padding:20px;}table{width:100%;border-collapse:collapse;}
+  th{background:#0B1E3D;color:#fff;padding:8px 10px;text-align:left;font-size:11px;}td{padding:8px 10px;border-bottom:1px solid #DDE5F0;}
+  tfoot td{background:#0B1E3D;color:#fff;font-weight:700;}
+  .btn{background:#6B7280;color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:700;margin-right:8px;}
+  .btn2{background:#0B1E3D;}.btn-wrap{margin-bottom:14px;}@media print{.btn-wrap{display:none;}}</style></head><body>
+  <div class="btn-wrap"><button class="btn" onclick="window.close()">← Back</button><button class="btn btn2" onclick="window.print()">🖨 Print</button></div>
+  <h2>📅 Card EPOS — Month Summary (FY ${fmtFY(fy)})</h2>
+  <table><thead><tr><th>Month</th><th>Batch Total</th><th>Received</th><th>Pending</th><th>Entries</th></tr></thead>
+  <tbody>${rows}</tbody>
+  <tfoot><tr><td>TOTAL</td><td>₹${totB.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td>₹${totR.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td>₹${totP.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td>${txns.length}</td></tr></tfoot>
+  </table></body></html>`;
+  window.open(URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'})),'_blank');
+  toast('Month summary opened');
+}
+
+// ── ENTRY NOTIFICATIONS + DAILY REMINDER ─────────────────────────────────────
+function sendEntryNotification(type,amount,detail){
+  if(Notification.permission==='granted'){
+    new Notification('Card EPOS Checker',{
+      body:type+': '+fmtAmt(amount)+' — '+detail,
+      icon:'/pinelab-epos/icon-192.png',tag:'epos-entry'
+    });
+  }
+}
+
+function scheduleDailyNotification(){
+  function msUntil9am(){
+    const now=new Date(), next=new Date();
+    next.setHours(9,0,0,0);
+    if(now>=next) next.setDate(next.getDate()+1);
+    return next-now;
+  }
+  function fireDaily(){
+    if(Notification.permission==='granted'){
+      const m=computeMatch();
+      new Notification('Card EPOS Checker — Daily Summary',{
+        body:`Pending: ${fmtAmt(m.totalPending)} · ${m.pendingCount} unsettled batch${m.pendingCount!==1?'es':''}`,
+        icon:'/pinelab-epos/icon-192.png',
+        tag:'epos-daily'
+      });
+    }
+    setTimeout(fireDaily, msUntil9am());
+  }
+  setTimeout(fireDaily, msUntil9am());
+}
+
+loadFromSheet().then(()=>{ renderHolidays(); scheduleDailyLedger(); setTimeout(autoClearOverrides,3000); requestNotifPermission(); scheduleDailyNotification(); });
+
+// Auto-sync overrides when user returns to the tab/app
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible') syncOverrides();
+});
+
+// Also sync overrides every 30 seconds while app is open
+setInterval(syncOverrides, 30000);
+</script>
+</body>
+</html>
