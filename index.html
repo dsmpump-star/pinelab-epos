@@ -1259,7 +1259,7 @@ function exportPDF(){
   const tr2=co().received.reduce((s,r)=>s+r.amount,0);
   const fb=tr2-m.totalBatches;
   const pendingAmt=m.totalPending;
-  const _repHtml=`<!DOCTYPE html><html><head><title>${cname} EPOS Report</title>
+  const _repHtml=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${cname} EPOS Report</title>
   <style>body{font-family:Arial,sans-serif;font-size:12px;padding:24px;color:#0B1E3D;}h1{font-size:20px;margin-bottom:3px;}
   h2{font-size:13px;margin:20px 0 8px;padding:8px 12px;background:#F0F4FA;border-radius:6px;border-left:4px solid #1B5FBF;color:#0B1E3D;}
   .meta{color:#7A90B0;font-size:11px;margin-bottom:14px;}
@@ -1289,14 +1289,17 @@ function exportPDF(){
   <tbody>${bRows}</tbody>
   <tfoot><tr><td colspan="3">TOTAL</td><td>₹${tt.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td></td></tr></tfoot></table>
   <h2>💳 Received Credits — Running Balance</h2>
-  <table><thead><tr><th>Credit Date</th><th>Amount Received</th><th>Note</th><th>Running Total</th><th>Balance vs Batches</th></tr></thead>
+  <table><thead><tr><th>Credit Date</th><th>Amount Received</th><th>Note</th><th>Running Total</th><th>Balance vs Batches (excl. OB)</th></tr></thead>
   <tbody>${rRows}</tbody>
   <tfoot><tr><td>FINAL</td><td>₹${tr2.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td></td><td></td>
   <td style="color:${fb<0?'#FCA5A5':fb>0?'#6EE7B7':'#fff'};">₹${fb.toLocaleString('en-IN',{minimumFractionDigits:2})} ${fb<0?'(Short)':fb>0?'(Excess)':'(Exact ✓)'}</td></tr></tfoot></table>
   </body></html>`;
-  const _repBlob=new Blob([_repHtml],{type:'text/html'});
-  window.open(URL.createObjectURL(_repBlob),'_blank');
-  toast('Report opened — use ← Back to return');
+  const _repWin=window.open('','_blank');
+  if(_repWin){
+    _repWin.document.write(_repHtml);
+    _repWin.document.close();
+    toast('Report opened — use ← Back to return');
+  }
 }
 
 // ── RESET ──────────────────────────────────────────────────────────────────
@@ -1367,7 +1370,7 @@ async function syncOverrides(){
       db.openingBalance=remote.openingBalance||0;
       refreshRecv();
       if(curTab==='report') refreshReport();
-      if(curTab==='ledger' && document.getElementById('ldg-output').style.display!=='none') generateLedger();
+      // Don't auto-regenerate ledger on sync — only on explicit user action
       autoClearOverrides();
       // Update OB input if ledger tab is open
       if(curTab==='ledger'){
@@ -1718,7 +1721,7 @@ function exportLedgerPDF(){
   rows+=`<tr style="background:#F0F4FA;font-weight:700;"><td colspan="4">SUB TOTAL</td><td style="font-family:monospace;color:#EF4444;">₹${totalDr.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="font-family:monospace;color:#10B981;">₹${totalCr.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td></td></tr>
   <tr style="background:#142952;color:#fff;font-weight:700;"><td colspan="4">TOTAL</td><td style="font-family:monospace;">₹${maxT.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="font-family:monospace;">₹${maxT.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td></td></tr>
   <tr style="background:#0B1E3D;color:#fff;font-weight:800;"><td colspan="6">CLOSING BALANCE (Unsettled Batches)</td><td style="font-family:monospace;color:#FCA5A5;">₹${closingBal.toLocaleString('en-IN',{minimumFractionDigits:2})} Dr</td></tr>`;
-  const _ledHtml=`<!DOCTYPE html><html><head><title>${cname} Ledger</title>
+  const _ledHtml=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${cname} Ledger</title>
   <style>body{font-family:Arial,sans-serif;font-size:12px;padding:24px;color:#0B1E3D;}h1{font-size:18px;font-weight:800;margin-bottom:3px;}.meta{color:#7A90B0;font-size:11px;margin-bottom:14px;}
   .sum{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;}.sbox{background:#F8FAFD;border:1px solid #DDE5F0;border-radius:8px;padding:10px;flex:1;min-width:80px;text-align:center;}.sval{font-size:13px;font-weight:700;font-family:monospace;}.slbl{font-size:9px;color:#7A90B0;text-transform:uppercase;margin-top:2px;}
   table{width:100%;border-collapse:collapse;}th{background:#0B1E3D;color:#fff;padding:7px 9px;text-align:left;font-size:10px;text-transform:uppercase;}td{padding:7px 9px;border-bottom:1px solid #DDE5F0;font-size:11px;}tr:nth-child(even) td{background:#F8FAFD;}
@@ -1739,10 +1742,12 @@ function exportLedgerPDF(){
   <table><thead><tr><th>Date</th><th>Batch #</th><th>TID / Particulars</th><th>Note</th><th>Debit (Dr)</th><th>Credit (Cr)</th><th>Balance</th></tr></thead>
   <tbody>${rows}</tbody></table>
   </body></html>`;
-  const _blob=new Blob([_ledHtml],{type:'text/html'});
-  const _url=URL.createObjectURL(_blob);
-  window.open(_url,'_blank');
-  toast('Ledger opened — use ← Back to return');
+  const _ledWin=window.open('','_blank');
+  if(_ledWin){
+    _ledWin.document.write(_ledHtml);
+    _ledWin.document.close();
+    toast('Ledger opened — use ← Back to return');
+  }
 }
 
 // ── FINANCIAL YEAR ──────────────────────────────────────────────────────────
@@ -2076,7 +2081,7 @@ function autoDownloadLedger(){
   <tbody>${rows}</tbody></table></body></html>`;
 
   // Download as HTML file (auto, no dialog)
-  const blob=new Blob([html],{type:'text/html'});
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url;
@@ -2206,7 +2211,7 @@ function generateMonthSummary(){
   const totB=Object.values(months).reduce((s,m)=>s+m.batchAmt,0);
   const totR=Object.values(months).reduce((s,m)=>s+m.recvAmt,0);
   const totP=Object.values(months).reduce((s,m)=>s+m.pendingAmt,0);
-  const html=`<!DOCTYPE html><html><head><title>Month Summary</title>
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Month Summary</title>
   <style>body{font-family:Arial;font-size:12px;padding:20px;}table{width:100%;border-collapse:collapse;}
   th{background:#0B1E3D;color:#fff;padding:8px 10px;text-align:left;font-size:11px;}td{padding:8px 10px;border-bottom:1px solid #DDE5F0;}
   tfoot td{background:#0B1E3D;color:#fff;font-weight:700;}
@@ -2218,7 +2223,7 @@ function generateMonthSummary(){
   <tbody>${rows}</tbody>
   <tfoot><tr><td>TOTAL</td><td>₹${totB.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td>₹${totR.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td>₹${totP.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td>${txns.length}</td></tr></tfoot>
   </table></body></html>`;
-  window.open(URL.createObjectURL(new Blob([html],{type:'text/html'})),'_blank');
+  window.open(URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'})),'_blank');
   toast('Month summary opened');
 }
 
