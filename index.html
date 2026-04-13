@@ -155,15 +155,16 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 /* LEDGER */
 .ledger-wrap{background:var(--card);border-radius:15px;border:1px solid var(--border);overflow:hidden;margin-bottom:14px;}
 .ledger-hdr{background:var(--navy);color:#fff;}
-.ledger-hdr-row{display:grid;grid-template-columns:85px 70px 1fr 95px 95px 95px;padding:10px 12px;gap:6px;}
-.ledger-hdr-row span{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:rgba(255,255,255,.7);}
-.ledger-row{display:grid;grid-template-columns:85px 70px 1fr 95px 95px 95px;padding:9px 12px;border-bottom:1px solid var(--border);font-size:12px;gap:6px;align-items:center;}
+.ledger-hdr-row{display:grid;grid-template-columns:72px 58px 1fr 88px 88px 90px;padding:10px 10px;gap:4px;min-width:480px;}
+.ledger-hdr-row span{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:rgba(255,255,255,.7);}
+.ledger-row{display:grid;grid-template-columns:72px 58px 1fr 88px 88px 90px;padding:9px 10px;border-bottom:1px solid var(--border);font-size:11px;gap:4px;align-items:center;min-width:480px;}
 .ledger-row:last-child{border-bottom:none;}
 .ledger-row:nth-child(even){background:#F8FAFD;}
 .ledger-row.opening{background:#EFF6FF!important;font-weight:700;}
 .ledger-row.subtotal{background:#F0F4FA!important;font-weight:700;}
 .ledger-row.total-row{background:var(--navy2)!important;color:#fff!important;font-weight:700;}
 .ledger-row.closing{background:var(--navy)!important;color:#fff!important;font-weight:800;}
+.ledger-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .lr-date{font-size:11px;color:var(--muted);white-space:nowrap;}
 .lr-batch{font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;color:var(--navy);}
 .lr-debit{font-family:'Roboto Mono',monospace;font-weight:700;color:var(--red);text-align:right;}
@@ -471,7 +472,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <button class="btn btn-accent" onclick="exportLedgerExcel()">⬇ Excel</button>
       <button class="btn btn-primary" onclick="exportLedgerPDF()">⬇ PDF</button>
     </div>
-    <div style="overflow-x:auto;border-radius:13px;border:1px solid var(--border);">
+    <div class="ledger-scroll" style="border-radius:13px;border:1px solid var(--border);">
       <div class="ledger-hdr">
         <div class="ledger-hdr-row">
           <span>Date</span><span>Batch #</span><span>TID / Particulars</span>
