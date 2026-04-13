@@ -119,6 +119,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .modal-box{background:#fff;border-radius:22px 22px 0 0;padding:22px 18px 36px;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;}
 .modal-handle{width:38px;height:4px;background:var(--border);border-radius:4px;margin:0 auto 18px;}
 
+
+/* PULL TO REFRESH */
+.ptr-indicator{position:fixed;top:0;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:8px 20px;border-radius:0 0 12px 12px;font-size:12px;font-weight:700;z-index:999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.2);}
+
 /* DASHBOARD */
 .dash-hero{background:linear-gradient(135deg,var(--navy),#0D3060);border-radius:16px;padding:20px 18px;margin-bottom:13px;color:#fff;}
 .dash-pending-lbl{font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
@@ -189,6 +193,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </head>
 <body>
 
+<div class="ptr-indicator" id="ptr-indicator">↓ Syncing...</div>
 <div class="topbar">
   <div class="brand-row">
     <div class="brand">
@@ -446,6 +451,11 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <button class="btn btn-primary" onclick="generateLedger()" style="margin-top:4px;">📒 Generate Ledger</button>
   </div>
   <!-- Output -->
+  <div style="display:flex;gap:8px;margin-bottom:13px;">
+    <button class="btn btn-sm" onclick="backupData()" style="flex:1;background:#6B7280;color:#fff;">⬇ Backup</button>
+    <button class="btn btn-sm" onclick="document.getElementById('restore-input').click()" style="flex:1;background:#6B7280;color:#fff;">⬆ Restore</button>
+    <input type="file" id="restore-input" accept=".json" style="display:none;" onchange="restoreData(this)">
+  </div>
   <div id="ldg-output" style="display:none;">
     <div class="tiles">
       <div class="tile t-blue"><div class="tile-val" id="ls-ob">₹0</div><div class="tile-lbl">Opening Bal</div></div>
@@ -1249,20 +1259,24 @@ function exportPDF(){
   const tr2=co().received.reduce((s,r)=>s+r.amount,0);
   const fb=tr2-m.totalBatches;
   const pendingAmt=m.totalPending;
-  const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>${cname} EPOS Report</title>
+  const _repHtml=`<!DOCTYPE html><html><head><title>${cname} EPOS Report</title>
   <style>body{font-family:Arial,sans-serif;font-size:12px;padding:24px;color:#0B1E3D;}h1{font-size:20px;margin-bottom:3px;}
   h2{font-size:13px;margin:20px 0 8px;padding:8px 12px;background:#F0F4FA;border-radius:6px;border-left:4px solid #1B5FBF;color:#0B1E3D;}
   .meta{color:#7A90B0;font-size:11px;margin-bottom:14px;}
-  .summary{display:flex;gap:10px;margin-bottom:18px;}
-  .sbox{background:#F8FAFD;border:1px solid #DDE5F0;border-radius:8px;padding:10px 14px;flex:1;}
+  .summary{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
+  .sbox{background:#F8FAFD;border:1px solid #DDE5F0;border-radius:8px;padding:10px 14px;flex:1;min-width:80px;}
   .sval{font-size:15px;font-weight:700;font-family:monospace;}.slbl{font-size:10px;color:#7A90B0;text-transform:uppercase;margin-top:2px;}
   table{width:100%;border-collapse:collapse;margin-bottom:4px;}
   th{background:#0B1E3D;color:#fff;padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase;}
   td{padding:8px 10px;border-bottom:1px solid #DDE5F0;font-size:12px;}tr:nth-child(even) td{background:#F8FAFD;}
   tfoot td{background:#142952!important;color:#fff!important;font-weight:700;}
-  .btn{background:#1B5FBF;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;margin-top:20px;}
-  @media print{.btn{display:none;}}</style></head><body>
+  .btn{background:#1B5FBF;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;margin:8px 8px 8px 0;}
+  .btn-back{background:#6B7280;}
+  .btn-wrap{margin-top:20px;}@media print{.btn-wrap{display:none;}}</style></head><body>
+  <div class="btn-wrap">
+    <button class="btn btn-back" onclick="window.close()">← Back to App</button>
+    <button class="btn" onclick="window.print()">🖨 Print / Save as PDF</button>
+  </div>
   <h1>🏦 ${cname.toUpperCase()} — E-POS TRANSACTION REPORT</h1>
   <div class="meta">Generated: ${new Date().toLocaleString('en-IN')}</div>
   <div class="summary">
@@ -1279,9 +1293,10 @@ function exportPDF(){
   <tbody>${rRows}</tbody>
   <tfoot><tr><td>FINAL</td><td>₹${tr2.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td></td><td></td>
   <td style="color:${fb<0?'#FCA5A5':fb>0?'#6EE7B7':'#fff'};">₹${fb.toLocaleString('en-IN',{minimumFractionDigits:2})} ${fb<0?'(Short)':fb>0?'(Excess)':'(Exact ✓)'}</td></tr></tfoot></table>
-  <button class="btn" onclick="window.print()">🖨 Print / Save as PDF</button>
-  </body></html>`);
-  w.document.close();toast('PDF opened!');
+  </body></html>`;
+  const _repBlob=new Blob([_repHtml],{type:'text/html'});
+  window.open(URL.createObjectURL(_repBlob),'_blank');
+  toast('Report opened — use ← Back to return');
 }
 
 // ── RESET ──────────────────────────────────────────────────────────────────
@@ -1375,24 +1390,21 @@ function saveHolidays(list){
 }
 
 // Returns true if date is a 2nd Saturday of its month
-function isSecondSaturday(dateStr){
-  const d=new Date(dateStr+'T00:00:00');
-  if(d.getDay()!==6) return false; // not Saturday
-  const day=d.getDate();
-  return day>=8&&day<=14; // 2nd Saturday = 8th to 14th
-}
-
-// Returns true if date is a bank holiday (custom or 2nd Sat or Sun)
+// ALL Saturdays settle Monday (T+2), Sundays settle Monday
+// No 2nd Saturday special case needed — all Saturdays are same rule
 function isBankHoliday(dateStr){
   const d=new Date(dateStr+'T00:00:00');
   const dow=d.getDay();
-  if(dow===0) return true; // Sunday always
-  if(isSecondSaturday(dateStr)) return true; // 2nd Saturday
+  if(dow===0) return true; // Sunday
+  if(dow===6) return true; // ALL Saturdays — banks don't process on Sunday
   return getHolidays().includes(dateStr); // custom holidays
 }
 
-// Returns next settlement day considering all holidays
-// T+1 but skips Sundays, 2nd Saturdays, and custom bank holidays
+// Returns next settlement day:
+// Mon-Fri batch → T+1 (next calendar day, skip if holiday)
+// Saturday batch → Monday (skip Sun)
+// Sunday batch → Monday
+// Custom holidays → skip to next working day
 function nextBusinessDay(dateStr){
   const d=new Date(dateStr+'T00:00:00');
   d.setDate(d.getDate()+1);
@@ -1706,12 +1718,16 @@ function exportLedgerPDF(){
   rows+=`<tr style="background:#F0F4FA;font-weight:700;"><td colspan="4">SUB TOTAL</td><td style="font-family:monospace;color:#EF4444;">₹${totalDr.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="font-family:monospace;color:#10B981;">₹${totalCr.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td></td></tr>
   <tr style="background:#142952;color:#fff;font-weight:700;"><td colspan="4">TOTAL</td><td style="font-family:monospace;">₹${maxT.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="font-family:monospace;">₹${maxT.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td></td></tr>
   <tr style="background:#0B1E3D;color:#fff;font-weight:800;"><td colspan="6">CLOSING BALANCE (Unsettled Batches)</td><td style="font-family:monospace;color:#FCA5A5;">₹${closingBal.toLocaleString('en-IN',{minimumFractionDigits:2})} Dr</td></tr>`;
-  const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>${cname} Ledger</title>
+  const _ledHtml=`<!DOCTYPE html><html><head><title>${cname} Ledger</title>
   <style>body{font-family:Arial,sans-serif;font-size:12px;padding:24px;color:#0B1E3D;}h1{font-size:18px;font-weight:800;margin-bottom:3px;}.meta{color:#7A90B0;font-size:11px;margin-bottom:14px;}
-  .sum{display:flex;gap:10px;margin-bottom:16px;}.sbox{background:#F8FAFD;border:1px solid #DDE5F0;border-radius:8px;padding:10px;flex:1;text-align:center;}.sval{font-size:13px;font-weight:700;font-family:monospace;}.slbl{font-size:9px;color:#7A90B0;text-transform:uppercase;margin-top:2px;}
+  .sum{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;}.sbox{background:#F8FAFD;border:1px solid #DDE5F0;border-radius:8px;padding:10px;flex:1;min-width:80px;text-align:center;}.sval{font-size:13px;font-weight:700;font-family:monospace;}.slbl{font-size:9px;color:#7A90B0;text-transform:uppercase;margin-top:2px;}
   table{width:100%;border-collapse:collapse;}th{background:#0B1E3D;color:#fff;padding:7px 9px;text-align:left;font-size:10px;text-transform:uppercase;}td{padding:7px 9px;border-bottom:1px solid #DDE5F0;font-size:11px;}tr:nth-child(even) td{background:#F8FAFD;}
-  .btn{background:#1B5FBF;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;margin-top:16px;}@media print{.btn{display:none;}}</style></head><body>
+  .btn{background:#1B5FBF;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;margin:8px 8px 8px 0;}
+  .btn-back{background:#6B7280;}.btn-wrap{margin-top:16px;}@media print{.btn-wrap{display:none;}}</style></head><body>
+  <div class="btn-wrap">
+    <button class="btn btn-back" onclick="window.close()">← Back to App</button>
+    <button class="btn" onclick="window.print()">🖨 Print / Save as PDF</button>
+  </div>
   <h1>🏦 ${cname.toUpperCase()} — E-POS TRANSACTION LEDGER</h1>
   <div class="meta">Period: ${fmtDate(from)} to ${fmtDate(to)} · Generated: ${new Date().toLocaleString('en-IN')}</div>
   <div class="sum">
@@ -1722,9 +1738,11 @@ function exportLedgerPDF(){
   </div>
   <table><thead><tr><th>Date</th><th>Batch #</th><th>TID / Particulars</th><th>Note</th><th>Debit (Dr)</th><th>Credit (Cr)</th><th>Balance</th></tr></thead>
   <tbody>${rows}</tbody></table>
-  <button class="btn" onclick="window.print()">🖨 Print / Save as PDF</button>
-  </body></html>`);
-  w.document.close();toast('PDF opened!');
+  </body></html>`;
+  const _blob=new Blob([_ledHtml],{type:'text/html'});
+  const _url=URL.createObjectURL(_blob);
+  window.open(_url,'_blank');
+  toast('Ledger opened — use ← Back to return');
 }
 
 // ── FINANCIAL YEAR ──────────────────────────────────────────────────────────
@@ -2141,7 +2159,80 @@ if(/iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.navigator.standalone){
 }
 
 // Load everything from Google Sheets on startup
-loadFromSheet().then(()=>{ renderHolidays(); scheduleDailyLedger(); setTimeout(autoClearOverrides,3000); });
+
+// ── PULL TO REFRESH ──────────────────────────────────────────────────────────
+let _ptrStartY=0,_ptrActive=false;
+document.addEventListener('touchstart',e=>{if(window.scrollY===0)_ptrStartY=e.touches[0].clientY;},{passive:true});
+document.addEventListener('touchend',e=>{
+  const dy=e.changedTouches[0].clientY-_ptrStartY;
+  if(dy>80&&window.scrollY===0&&!_ptrActive){
+    _ptrActive=true;
+    const ind=document.getElementById('ptr-indicator');
+    if(ind){ind.style.display='block';ind.textContent='↓ Syncing...';}
+    loadFromSheet().finally(()=>{
+      const ind2=document.getElementById('ptr-indicator');
+      if(ind2)ind2.style.display='none';
+      _ptrActive=false;
+    });
+  }
+  _ptrStartY=0;
+},{passive:true});
+
+// ── MONTH-WISE SUMMARY ───────────────────────────────────────────────────────
+function generateMonthSummary(){
+  const fy=getCurrentFY();
+  const txns=coFYTransactions();
+  const recv=coFYReceived();
+  const m=computeMatch();
+  const statusMap={};
+  m.batches.forEach(b=>statusMap[b.id]=b.status);
+  const months={};
+  txns.forEach(t=>{
+    const mo=t.date.slice(0,7);
+    if(!months[mo])months[mo]={batchAmt:0,recvAmt:0,pendingAmt:0,count:0};
+    months[mo].batchAmt+=t.amount;months[mo].count++;
+    if(statusMap[t.id]!=='settled')months[mo].pendingAmt+=t.amount;
+  });
+  recv.forEach(r=>{const mo=r.date.slice(0,7);if(!months[mo])months[mo]={batchAmt:0,recvAmt:0,pendingAmt:0,count:0};months[mo].recvAmt+=r.amount;});
+  const monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const rows=Object.keys(months).sort().map(mo=>{
+    const d=months[mo];const[y,m2]=mo.split('-');
+    return`<tr><td><strong>${monthNames[parseInt(m2)-1]} ${y}</strong></td>
+    <td style="font-family:monospace;color:#1B5FBF;">₹${(d.batchAmt||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+    <td style="font-family:monospace;color:#10B981;">₹${(d.recvAmt||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+    <td style="font-family:monospace;color:#EF4444;">₹${(d.pendingAmt||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+    <td>${d.count}</td></tr>`;
+  }).join('');
+  const totB=Object.values(months).reduce((s,m)=>s+m.batchAmt,0);
+  const totR=Object.values(months).reduce((s,m)=>s+m.recvAmt,0);
+  const totP=Object.values(months).reduce((s,m)=>s+m.pendingAmt,0);
+  const html=`<!DOCTYPE html><html><head><title>Month Summary</title>
+  <style>body{font-family:Arial;font-size:12px;padding:20px;}table{width:100%;border-collapse:collapse;}
+  th{background:#0B1E3D;color:#fff;padding:8px 10px;text-align:left;font-size:11px;}td{padding:8px 10px;border-bottom:1px solid #DDE5F0;}
+  tfoot td{background:#0B1E3D;color:#fff;font-weight:700;}
+  .btn{background:#6B7280;color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:700;margin-right:8px;}
+  .btn2{background:#0B1E3D;}.btn-wrap{margin-bottom:14px;}@media print{.btn-wrap{display:none;}}</style></head><body>
+  <div class="btn-wrap"><button class="btn" onclick="window.close()">← Back</button><button class="btn btn2" onclick="window.print()">🖨 Print</button></div>
+  <h2>📅 Card EPOS — Month Summary (FY ${fmtFY(fy)})</h2>
+  <table><thead><tr><th>Month</th><th>Batch Total</th><th>Received</th><th>Pending</th><th>Entries</th></tr></thead>
+  <tbody>${rows}</tbody>
+  <tfoot><tr><td>TOTAL</td><td>₹${totB.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td>₹${totR.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td>₹${totP.toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td>${txns.length}</td></tr></tfoot>
+  </table></body></html>`;
+  window.open(URL.createObjectURL(new Blob([html],{type:'text/html'})),'_blank');
+  toast('Month summary opened');
+}
+
+// ── ENTRY NOTIFICATIONS ───────────────────────────────────────────────────────
+function sendEntryNotification(type,amount,detail){
+  if(Notification.permission==='granted'){
+    new Notification('Card EPOS Checker',{
+      body:type+': '+fmtAmt(amount)+' — '+detail,
+      icon:'/pinelab-epos/icon-192.png',tag:'epos-entry'
+    });
+  }
+}
+
+loadFromSheet().then(()=>{ renderHolidays(); scheduleDailyLedger(); setTimeout(autoClearOverrides,3000); requestNotifPermission(); });
 
 // Auto-sync overrides when user returns to the tab/app
 document.addEventListener('visibilitychange', ()=>{
