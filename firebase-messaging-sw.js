@@ -16,7 +16,7 @@ const messaging = firebase.messaging();
 // Handle background messages (when app is closed/minimized)
 messaging.onBackgroundMessage(payload => {
   console.log('[FCM] EPOS Background message:', payload);
-  const { title, body, icon } = payload.notification || {};
+  const { title, body, icon, link } = payload.data || {};
   self.registration.showNotification(title || 'Card EPOS Checker', {
     body: body || 'New entry saved',
     icon: icon || '/pinelab-epos/icon-192.png',
