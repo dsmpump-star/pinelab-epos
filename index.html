@@ -7,6 +7,10 @@
 
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
+
+<!-- Firebase (Push Notifications) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
 <meta name="theme-color" content="#0B1E3D">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -458,6 +462,16 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <button onclick="generateMonthSummary()" style="background:#10B981;color:#fff;border:none;border-radius:11px;padding:13px 8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">📅 Month<br>Summary</button>
     <button onclick="exportExcel(document.getElementById('ldg-from').value, document.getElementById('ldg-to').value)" style="background:#1D6F42;color:#fff;border:none;border-radius:11px;padding:13px 8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">📊 Export<br>Excel</button>
   </div>
+  <!-- Push Notifications -->
+  <button onclick="toggleNotifications()" id="notif-btn" style="width:100%;background:#1A2332;color:#fff;border:none;border-radius:11px;padding:13px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span id="notif-icon">🔕</span>
+      <span id="notif-btn-text">Tap to Enable Notifications</span>
+    </div>
+    <div id="notif-toggle" style="width:44px;height:24px;border-radius:12px;background:#374151;position:relative;transition:background .2s;flex-shrink:0;">
+      <div id="notif-knob" style="width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:2px;left:2px;transition:left .2s;"></div>
+    </div>
+  </button>
   <!-- Backup/Restore -->
     <button class="btn btn-sm" onclick="backupData()" style="flex:1;background:#6B7280;color:#fff;">⬇ Backup</button>
     <button class="btn btn-sm" onclick="document.getElementById('restore-input').click()" style="flex:1;background:#6B7280;color:#fff;">⬆ Restore</button>
@@ -899,6 +913,7 @@ async function saveDSM(){
   document.getElementById('dsm-amount').focus();
   toast(`Saved ✓  Batch #${batch}  ${fmtAmt(amount)}`);
   refreshDSM(); save();
+  sendPushNotification('Card EPOS — Entry Saved', `Batch #${batch}  ${fmtAmt(amount)}  (${tid})`);
   setSyncStatus('syncing');
   await apiPost({action:'saveTransaction',data:{...entry,companyId:db.activeCompanyId,fy:getCurrentFY()}});
   setSyncStatus('ok');
@@ -2162,18 +2177,173 @@ function autoDownloadLedger(){
   console.log('📊 Daily ledger downloaded at noon');
 }
 
+// ── FIREBASE PUSH NOTIFICATIONS ──────────────────────────────────────────────
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyA_nJVzzbNsTLwNGwxZaf8RpaniXDMETFM",
+  authDomain: "dsm-qr-notifications.firebaseapp.com",
+  projectId: "dsm-qr-notifications",
+  storageBucket: "dsm-qr-notifications.firebasestorage.app",
+  messagingSenderId: "522523299808",
+  appId: "1:522523299808:web:9f86a2eafa2fe054446585"
+};
+const VAPID_KEY = "BI8fg36cBZWQzgMHQeJITrT5aVafyWJPAWXHRZcL0zCTzW2xPWgdtyRLRUMvMka5m5_L2RRJa5K_nu7p6xhg9wY";
+const FCM_REGISTER_URL = "https://qr-notify.dsmpump-18c.workers.dev/register";
+const FCM_UNREGISTER_URL = "https://qr-notify.dsmpump-18c.workers.dev/unregister";
+const FCM_NOTIFY_URL   = "https://qr-notify.dsmpump-18c.workers.dev/notify";
+const FCM_APP_ID = "epos"; // identifies this app to the worker
+
+let _fbApp=null,_fbMessaging=null,_fcmToken=null;
+
+function setNotifToggle(enabled){
+  const toggle=document.getElementById('notif-toggle');
+  const knob=document.getElementById('notif-knob');
+  const txt=document.getElementById('notif-btn-text');
+  const icon=document.getElementById('notif-icon');
+  const btn=document.getElementById('notif-btn');
+  if(enabled){
+    if(toggle) toggle.style.background='#10B981';
+    if(knob) knob.style.left='22px';
+    if(txt) txt.textContent='Notifications Enabled';
+    if(icon) icon.textContent='🔔';
+    if(btn) btn.style.background='#0B1E3D';
+  } else {
+    if(toggle) toggle.style.background='#374151';
+    if(knob) knob.style.left='2px';
+    if(txt) txt.textContent='Notifications Disabled — tap to enable';
+    if(icon) icon.textContent='🔕';
+    if(btn) btn.style.background='#1A2332';
+  }
+  localStorage.setItem('epos_notif_enabled', enabled?'1':'0');
+}
+
+async function toggleNotifications(){
+  const isEnabled=localStorage.getItem('epos_notif_enabled')==='1'&&_fcmToken;
+  const txt=document.getElementById('notif-btn-text');
+  if(isEnabled){
+    try{
+      if(_fcmToken){
+        await fetch(FCM_UNREGISTER_URL,{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({token:_fcmToken,app:FCM_APP_ID})
+        });
+      }
+    }catch(e){}
+    _fcmToken=null;
+    localStorage.removeItem('epos_fcm_token');
+    setNotifToggle(false);
+    toast('Notifications disabled 🔕');
+  } else {
+    if(txt) txt.textContent='⏳ Enabling...';
+    try{
+      if(typeof Notification==='undefined'){
+        if(txt) txt.textContent='❌ Not supported on this browser';
+        return;
+      }
+      const perm=await Notification.requestPermission();
+      if(perm!=='granted'){
+        if(txt) txt.textContent='❌ Permission denied — check settings';
+        return;
+      }
+      await initFirebase();
+      if(_fcmToken){
+        setNotifToggle(true);
+        toast('Notifications enabled 🔔');
+      } else {
+        if(txt) txt.textContent='❌ Could not get token — try again';
+      }
+    }catch(e){
+      if(txt) txt.textContent='❌ Error: '+e.message;
+    }
+  }
+}
+
+function checkNotifBanner(){
+  const enabled=localStorage.getItem('epos_notif_enabled')==='1';
+  const denied=typeof Notification!=='undefined'&&Notification.permission==='denied';
+  if(denied){
+    const txt=document.getElementById('notif-btn-text');
+    if(txt) txt.textContent='❌ Blocked — enable in Settings > Notifications';
+    setNotifToggle(false);
+  } else {
+    setNotifToggle(enabled&&!!_fcmToken);
+  }
+}
+
+async function initFirebase(){
+  try{
+    if(!firebase.apps.length){
+      _fbApp=firebase.initializeApp(FIREBASE_CONFIG);
+    } else {
+      _fbApp=firebase.app();
+    }
+    _fbMessaging=firebase.messaging();
+    if(Notification.permission!=='granted'){
+      const permission=await Notification.requestPermission();
+      if(permission!=='granted') return;
+    }
+    const swReg=await navigator.serviceWorker.getRegistration();
+    if(!swReg){ toast('SW not found — try reinstalling app','err'); return; }
+    _fcmToken=await _fbMessaging.getToken({vapidKey:VAPID_KEY,serviceWorkerRegistration:swReg});
+    if(_fcmToken){
+      console.log('FCM token obtained:', _fcmToken.slice(0,20)+'...');
+      await registerFCMToken(_fcmToken);
+      setNotifToggle(true);
+    } else {
+      toast('No token returned — check Firebase setup','err');
+    }
+    _fbMessaging.onMessage(payload=>{
+      const {title,body}=payload.notification||{};
+      toast((title||'Card EPOS')+': '+(body||''));
+    });
+  }catch(err){
+    console.error('Firebase init error:', err);
+    toast('Firebase error: '+err.message,'err');
+    throw err;
+  }
+}
+
+async function registerFCMToken(token){
+  try{
+    const device=navigator.userAgent.includes('iPhone')?'iPhone':navigator.userAgent.includes('Android')?'Android':'Desktop';
+    await fetch(FCM_REGISTER_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({token,device,app:FCM_APP_ID})
+    });
+    localStorage.setItem('epos_fcm_token',token);
+  }catch(err){
+    console.error('Token registration error:', err);
+  }
+}
+
+async function sendPushNotification(title,body){
+  try{
+    await fetch(FCM_NOTIFY_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({title,body,app:FCM_APP_ID})
+    });
+  }catch(err){
+    console.error('Push notification error:', err);
+  }
+}
+
 // ── PWA SERVICE WORKER + INSTALL PROMPT ────────────────────────────────────
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('sw.js')
+    navigator.serviceWorker.register('firebase-messaging-sw.js')
       .then(reg=>{
-        console.log('SW registered:', reg.scope);
-        // Listen for messages from SW (e.g. download ledger)
+        console.log('EPOS SW registered:', reg.scope);
         navigator.serviceWorker.addEventListener('message', e=>{
           if(e.data&&e.data.type==='DOWNLOAD_LEDGER') autoDownloadLedger();
         });
+        // Auto-restore notifications if previously enabled
+        const wasEnabled=localStorage.getItem('epos_notif_enabled')==='1';
+        if(wasEnabled){ initFirebase().then(()=>checkNotifBanner()).catch(()=>{}); }
+        else { checkNotifBanner(); }
       })
-      .catch(err=>console.log('SW error:', err));
+      .catch(err=>console.log('EPOS SW error:', err));
   });
 }
 
