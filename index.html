@@ -224,6 +224,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div class="tab" onclick="switchTab('recv')">💰 Received</div>
     <div class="tab" onclick="switchTab('report')">📊 Report</div>
     <div class="tab" onclick="switchTab('ledger')">📒 Ledger</div>
+    <div class="tab" onclick="switchTab('analytics')">📈 Analytics</div>
+    <div class="tab" onclick="switchTab('settings')">⚙️ Settings</div>
   </div>
 </div>
 
@@ -334,25 +336,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </div>
     <button class="btn btn-primary" onclick="saveDSM()" id="save-dsm-btn" disabled style="opacity:.5;">＋ Save Transaction</button>
   </div>
-  <div class="card">
-    <div class="card-title"><span>⚙️</span> Manage TID Numbers</div>
-    <div class="tid-wrap" id="tid-tags"></div>
-    <div style="display:flex;gap:8px;">
-      <input type="text" id="new-tid" placeholder="Enter TID e.g. TID-123456" style="flex:1;">
-      <button class="btn btn-sm btn-accent" onclick="addTID()">+ Add</button>
-    </div>
-  </div>
-  <!-- Bank Holidays Card -->
-  <div class="card">
-    <div class="card-title"><span>🏦</span> Bank Holidays
-      <span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:4px;">2nd Sat auto-included</span>
-    </div>
-    <div id="holiday-tags" style="display:flex;flex-wrap:wrap;margin-bottom:11px;min-height:30px;"></div>
-    <div style="display:flex;gap:8px;">
-      <input type="date" id="new-holiday" style="flex:1;">
-      <button class="btn btn-sm btn-accent" onclick="addHoliday()">+ Add</button>
-    </div>
-  </div>
+
   <!-- Search -->
   <div class="search-wrap">
     <span class="search-icon">🔍</span>
@@ -472,11 +456,6 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <div id="notif-knob" style="width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:2px;left:2px;transition:left .2s;"></div>
     </div>
   </button>
-  <!-- Backup/Restore -->
-    <button class="btn btn-sm" onclick="backupData()" style="flex:1;background:#6B7280;color:#fff;">⬇ Backup</button>
-    <button class="btn btn-sm" onclick="document.getElementById('restore-input').click()" style="flex:1;background:#6B7280;color:#fff;">⬆ Restore</button>
-    <input type="file" id="restore-input" accept=".json" style="display:none;" onchange="restoreData(this)">
-  </div>
   <div id="ldg-output" style="display:none;">
     <div class="tiles">
       <div class="tile t-blue"><div class="tile-val" id="ls-ob">₹0</div><div class="tile-lbl">Opening Bal</div></div>
@@ -503,6 +482,94 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       </div>
       <div id="ldg-rows"></div>
     </div>
+  </div>
+</div>
+
+
+<!-- ═══ ANALYTICS ═══ -->
+<div class="page" id="page-analytics">
+<style>
+.an-pbtn{flex:1;padding:8px 3px;border-radius:20px;font-size:10px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--card);color:var(--muted);}
+.an-pbtn.ap{background:#0B1E3D;color:#fff;border-color:#0B1E3D;}
+.an-card{background:var(--card);border-radius:13px;border:1px solid var(--border);padding:14px;margin-bottom:13px;}
+.an-title{font-size:12px;font-weight:700;color:#0B1E3D;margin-bottom:11px;}
+.an-mom-wrap{display:flex;align-items:flex-end;gap:3px;height:110px;overflow-x:auto;padding-bottom:2px;}
+.an-mom-col{display:flex;flex-direction:column;align-items:center;min-width:38px;flex-shrink:0;}
+.an-mom-bars{display:flex;gap:2px;align-items:flex-end;width:100%;}
+.an-bar-d{background:#0B1E3D;border-radius:3px 3px 0 0;width:50%;transition:height .4s;}
+.an-bar-c{background:#10B981;border-radius:3px 3px 0 0;width:50%;transition:height .4s;}
+.an-mom-lbl{font-size:8px;color:var(--muted);margin-top:4px;text-align:center;}
+.an-legend{display:flex;gap:14px;justify-content:center;margin-top:8px;}
+.an-leg{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);}
+.an-dot{width:9px;height:9px;border-radius:2px;}
+.an-wk-row{display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:10px;}
+.an-wk-row:last-child{border-bottom:none;}
+.an-wk-lbl{font-size:11px;color:var(--muted);width:70px;flex-shrink:0;}
+.an-wk-bar-wrap{flex:1;background:#F1F5F9;border-radius:4px;height:8px;overflow:hidden;}
+.an-wk-bar{height:8px;border-radius:4px;background:#0B1E3D;}
+.an-wk-amt{font-size:11px;font-weight:700;color:#0B1E3D;width:80px;text-align:right;font-family:monospace;}
+</style>
+  <div style="display:flex;gap:5px;margin-bottom:13px;">
+    <button class="an-pbtn ap" onclick="setEPOSAnPeriod('week',this)">This Week</button>
+    <button class="an-pbtn" onclick="setEPOSAnPeriod('month',this)">This Month</button>
+    <button class="an-pbtn" onclick="setEPOSAnPeriod('last',this)">Last Month</button>
+    <button class="an-pbtn" onclick="setEPOSAnPeriod('fy',this)">Full FY</button>
+  </div>
+  <div class="tiles" style="grid-template-columns:1fr 1fr;gap:8px;margin-bottom:13px;">
+    <div class="tile t-blue"><div class="tile-val" id="ean-total" style="font-size:14px;">₹0</div><div class="tile-lbl">Total Batches</div></div>
+    <div class="tile t-green"><div class="tile-val" id="ean-settled" style="font-size:14px;">₹0</div><div class="tile-lbl">Settled</div></div>
+    <div class="tile t-orange"><div class="tile-val" id="ean-avg" style="font-size:14px;">₹0</div><div class="tile-lbl">Avg/Day</div></div>
+    <div class="tile t-red"><div class="tile-val" id="ean-pending" style="font-size:14px;">₹0</div><div class="tile-lbl">Pending</div></div>
+  </div>
+  <div class="an-card">
+    <div class="an-title">📅 Month-on-Month Comparison</div>
+    <div class="an-mom-wrap" id="ean-mom"></div>
+    <div class="an-legend">
+      <div class="an-leg"><div class="an-dot" style="background:#0B1E3D;"></div>Batches</div>
+      <div class="an-leg"><div class="an-dot" style="background:#10B981;"></div>Received</div>
+    </div>
+  </div>
+  <div class="an-card">
+    <div class="an-title">📆 Weekly Trend (Batch Total)</div>
+    <div id="ean-weekly"></div>
+  </div>
+</div>
+
+<!-- ═══ SETTINGS ═══ -->
+<div class="page" id="page-settings">
+  <div class="card">
+    <div class="card-title"><span>⚙️</span> Manage TID Numbers</div>
+    <div class="tid-wrap" id="tid-tags"></div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="new-tid" placeholder="Enter TID e.g. TID-123456" style="flex:1;">
+      <button class="btn btn-sm btn-accent" onclick="addTID()">+ Add</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title"><span>🏦</span> Bank Holidays
+      <span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:4px;">2nd Sat auto-included</span>
+    </div>
+    <div id="holiday-tags" style="display:flex;flex-wrap:wrap;margin-bottom:11px;min-height:30px;"></div>
+    <div style="display:flex;gap:8px;">
+      <input type="date" id="new-holiday" style="flex:1;">
+      <button class="btn btn-sm btn-accent" onclick="addHoliday()">+ Add</button>
+    </div>
+  </div>
+  <div class="card">
+
+      <div class="card">
+    <div class="card-title"><span>☁️</span> Google Drive Backup</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:11px;">Auto-saves backup to your Google Drive. One-time setup required.</p>
+    
+    <div id="epos-gdrive-last" style="font-size:11px;color:var(--muted);text-align:center;"></div>
+  </div>
+  <div class="card">
+    <div class="card-title"><span>💾</span> Backup & Restore</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:13px;">
+      <button class="btn btn-sm" onclick="backupData()" style="background:#6B7280;color:#fff;">⬇ Backup</button>
+      <button class="btn btn-sm" onclick="document.getElementById('restore-input').click()" style="background:#6B7280;color:#fff;">⬆ Restore</button>
+    </div>
+    <input type="file" id="restore-input" accept=".json" style="display:none;" onchange="restoreData(this)">
   </div>
 </div>
 
@@ -699,7 +766,7 @@ let curTab='dsm';
 function switchTab(tab){
   curTab=tab;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['dash','dsm','recv','report','ledger'][i]===tab));
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['dash','dsm','recv','report','ledger','analytics','settings'][i]===tab));
   document.getElementById('page-'+(tab==='companies'?'companies':tab)).classList.add('active');
   if(tab==='companies'){renderCompanies();return;}
   if(!db.activeCompanyId){switchTab('companies');return;}
@@ -2213,24 +2280,26 @@ function setNotifToggle(enabled){
     if(icon) icon.textContent='🔕';
     if(btn) btn.style.background='#1A2332';
   }
-  localStorage.setItem('epos_notif_enabled', enabled?'1':'0');
+  // NOTE: do NOT write localStorage here — state is managed by toggleNotifications() only
 }
 
 async function toggleNotifications(){
-  const isEnabled=localStorage.getItem('epos_notif_enabled')==='1'&&_fcmToken;
+  const isEnabled=localStorage.getItem('epos_notif_enabled')==='1';
   const txt=document.getElementById('notif-btn-text');
   if(isEnabled){
     try{
-      if(_fcmToken){
+      const tokenToUnregister=_fcmToken||localStorage.getItem('epos_fcm_token');
+      if(tokenToUnregister){
         await fetch(FCM_UNREGISTER_URL,{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({token:_fcmToken,app:FCM_APP_ID})
+          body:JSON.stringify({token:tokenToUnregister,app:FCM_APP_ID})
         });
       }
     }catch(e){}
     _fcmToken=null;
     localStorage.removeItem('epos_fcm_token');
+    localStorage.setItem('epos_notif_enabled','0');
     setNotifToggle(false);
     toast('Notifications disabled 🔕');
   } else {
@@ -2266,7 +2335,7 @@ function checkNotifBanner(){
     if(txt) txt.textContent='❌ Blocked — enable in Settings > Notifications';
     setNotifToggle(false);
   } else {
-    setNotifToggle(enabled&&!!_fcmToken);
+    setNotifToggle(enabled);
   }
 }
 
@@ -2334,6 +2403,94 @@ async function sendPushNotification(title,body){
   }
 }
 
+
+// ── EPOS ANALYTICS ───────────────────────────────────────────────────────────
+let _eposAnPeriod = 'week';
+
+function setEPOSAnPeriod(p, btn) {
+  _eposAnPeriod = p;
+  document.querySelectorAll('#page-analytics .an-pbtn').forEach(b => b.classList.remove('ap'));
+  if(btn) btn.classList.add('ap');
+  refreshEPOSAnalytics();
+}
+
+function eposAnDates() {
+  const now = new Date();
+  const todayS = now.toISOString().split('T')[0];
+  let from, to = todayS;
+  if(_eposAnPeriod==='week'){const d=new Date(now);d.setDate(d.getDate()-6);from=d.toISOString().split('T')[0];}
+  else if(_eposAnPeriod==='month'){from=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;}
+  else if(_eposAnPeriod==='last'){
+    const d1=new Date(now.getFullYear(),now.getMonth()-1,1);
+    const d2=new Date(now.getFullYear(),now.getMonth(),0);
+    from=d1.toISOString().split('T')[0]; to=d2.toISOString().split('T')[0];
+  } else {
+    const fy=getCurrentFY();
+    const yr=parseInt(fy.split('-')[0]);
+    from=`${yr}-04-01`; to=`${yr+1}-03-31`;
+    if(to>todayS)to=todayS;
+  }
+  return{from,to};
+}
+
+function refreshEPOSAnalytics(){
+  const{from,to}=eposAnDates();
+  const allTxns=co().transactions.filter(t=>t.date>=from&&t.date<=to);
+  const allRecv=co().received.filter(r=>r.date>=from&&r.date<=to);
+
+  const totalBatch=allTxns.reduce((s,t)=>s+t.amount,0);
+  const totalSettled=allRecv.reduce((s,r)=>s+r.amount,0);
+  const pending=totalBatch-totalSettled;
+  const days=new Set(allTxns.map(t=>t.date));
+  const avgDay=days.size>0?totalBatch/days.size:0;
+
+  document.getElementById('ean-total').textContent=fmtAmt(totalBatch);
+  document.getElementById('ean-settled').textContent=fmtAmt(totalSettled);
+  document.getElementById('ean-avg').textContent=fmtAmt(avgDay);
+  document.getElementById('ean-pending').textContent=fmtAmt(Math.max(pending,0));
+
+  // Month-on-Month — 6 months
+  const now=new Date();
+  const months=[];
+  for(let i=5;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const mFrom=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+    const mTo=new Date(d.getFullYear(),d.getMonth()+1,0).toISOString().split('T')[0];
+    const mDr=co().transactions.filter(t=>t.date>=mFrom&&t.date<=mTo).reduce((s,t)=>s+t.amount,0);
+    const mCr=co().received.filter(r=>r.date>=mFrom&&r.date<=mTo).reduce((s,r)=>s+r.amount,0);
+    months.push({label:d.toLocaleString('default',{month:'short'}),dr:mDr,cr:mCr});
+  }
+  const maxMom=Math.max(...months.map(m=>Math.max(m.dr,m.cr)),1);
+  document.getElementById('ean-mom').innerHTML=months.map(m=>`
+    <div class="an-mom-col">
+      <div class="an-mom-bars" style="height:90px;align-items:flex-end;">
+        <div class="an-bar-d" style="height:${Math.max((m.dr/maxMom)*90,2)}px;" title="${fmtAmt(m.dr)}"></div>
+        <div class="an-bar-c" style="height:${Math.max((m.cr/maxMom)*90,2)}px;" title="${fmtAmt(m.cr)}"></div>
+      </div>
+      <div class="an-mom-lbl">${m.label}</div>
+    </div>`).join('');
+
+  // Weekly trend — 8 weeks
+  const weeks=[];
+  for(let i=7;i>=0;i--){
+    const wEnd=new Date(now);wEnd.setDate(wEnd.getDate()-i*7);
+    const wStart=new Date(wEnd);wStart.setDate(wEnd.getDate()-6);
+    const wFrom=wStart.toISOString().split('T')[0];
+    const wTo=wEnd.toISOString().split('T')[0];
+    const wDr=co().transactions.filter(t=>t.date>=wFrom&&t.date<=wTo).reduce((s,t)=>s+t.amount,0);
+    weeks.push({label:`${String(wStart.getDate()).padStart(2,'0')}/${String(wStart.getMonth()+1).padStart(2,'0')}`,dr:wDr});
+  }
+  const maxWk=Math.max(...weeks.map(w=>w.dr),1);
+  document.getElementById('ean-weekly').innerHTML=weeks.map(w=>`
+    <div class="an-wk-row">
+      <div class="an-wk-lbl">${w.label}</div>
+      <div class="an-wk-bar-wrap"><div class="an-wk-bar" style="width:${Math.max((w.dr/maxWk)*100,2)}%;"></div></div>
+      <div class="an-wk-amt">${w.dr>0?fmtAmt(w.dr):'—'}</div>
+    </div>`).join('');
+}
+
+
+
 // ── PWA SERVICE WORKER + INSTALL PROMPT ────────────────────────────────────
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
@@ -2344,9 +2501,11 @@ if('serviceWorker' in navigator){
           if(e.data&&e.data.type==='DOWNLOAD_LEDGER') autoDownloadLedger();
         });
         // Auto-restore notifications if previously enabled
+        checkNotifBanner(); // set toggle immediately from localStorage
         const wasEnabled=localStorage.getItem('epos_notif_enabled')==='1';
-        if(wasEnabled){ initFirebase().then(()=>checkNotifBanner()).catch(()=>{}); }
-        else { checkNotifBanner(); }
+        if(wasEnabled){
+          initFirebase().catch(e=>console.log('FCM re-init:', e));
+        }
       })
       .catch(err=>console.log('EPOS SW error:', err));
   });
