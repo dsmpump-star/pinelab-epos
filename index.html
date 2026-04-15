@@ -515,6 +515,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <button class="an-pbtn" onclick="setEPOSAnPeriod('last',this)">Last Month</button>
     <button class="an-pbtn" onclick="setEPOSAnPeriod('fy',this)">Full FY</button>
   </div>
+  <div style="text-align:right;margin-bottom:10px;">
+    <button onclick="printEPOSAnalytics()" style="background:#0B1E3D;color:#fff;border:none;border-radius:9px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;">🖨️ Print / Save PDF</button>
+  </div>
   <div class="tiles" style="grid-template-columns:1fr 1fr;gap:8px;margin-bottom:13px;">
     <div class="tile t-blue"><div class="tile-val" id="ean-total" style="font-size:14px;">₹0</div><div class="tile-lbl">Total Batches</div></div>
     <div class="tile t-green"><div class="tile-val" id="ean-settled" style="font-size:14px;">₹0</div><div class="tile-lbl">Settled</div></div>
@@ -2403,6 +2406,78 @@ async function sendPushNotification(title,body){
   }
 }
 
+
+
+function printEPOSAnalytics(){
+  const period = document.querySelector('#page-analytics .an-pbtn.ap');
+  const periodLabel = period ? period.textContent : '';
+  const {from,to} = eposAnDates();
+  const total = document.getElementById('ean-total').textContent;
+  const settled = document.getElementById('ean-settled').textContent;
+  const avg = document.getElementById('ean-avg').textContent;
+  const pending = document.getElementById('ean-pending').textContent;
+  const momHTML = document.getElementById('ean-mom').innerHTML;
+  const weeklyHTML = document.getElementById('ean-weekly').innerHTML;
+  const win = window.open('','_blank','width=800,height=900');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Card EPOS Analytics</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Segoe UI',sans-serif;background:#fff;color:#0B1E3D;padding:24px;}
+    h1{font-size:18px;font-weight:800;margin-bottom:4px;}
+    .sub{font-size:12px;color:#6B7280;margin-bottom:20px;}
+    .tiles{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:20px;}
+    .tile{border-radius:10px;padding:12px;text-align:center;}
+    .t-blue{background:#EFF6FF;}.t-green{background:#ECFDF5;}.t-orange{background:#FFF7ED;}.t-red{background:#FEF2F2;}
+    .tile-val{font-size:15px;font-weight:800;font-family:monospace;color:#0B1E3D;}
+    .tile-lbl{font-size:10px;color:#6B7280;margin-top:3px;}
+    .section{margin-bottom:20px;}
+    .section-title{font-size:13px;font-weight:700;color:#0B1E3D;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #E2E8F0;}
+    .an-mom-wrap{display:flex;align-items:flex-end;gap:3px;height:110px;overflow-x:auto;}
+    .an-mom-col{display:flex;flex-direction:column;align-items:center;min-width:38px;flex-shrink:0;}
+    .an-mom-bars{display:flex;gap:2px;align-items:flex-end;width:100%;}
+    .an-bar-d{background:#0B1E3D;border-radius:3px 3px 0 0;width:50%;}
+    .an-bar-c{background:#10B981;border-radius:3px 3px 0 0;width:50%;}
+    .an-mom-lbl{font-size:8px;color:#6B7280;margin-top:4px;text-align:center;}
+    .an-wk-row{display:flex;align-items:center;padding:7px 0;border-bottom:1px solid #F1F5F9;gap:10px;}
+    .an-wk-lbl{font-size:11px;color:#6B7280;width:70px;flex-shrink:0;}
+    .an-wk-bar-wrap{flex:1;background:#F1F5F9;border-radius:4px;height:8px;overflow:hidden;}
+    .an-wk-bar{height:8px;border-radius:4px;background:#0B1E3D;}
+    .an-wk-amt{font-size:11px;font-weight:700;color:#0B1E3D;width:80px;text-align:right;font-family:monospace;}
+    .legend{display:flex;gap:14px;margin-top:8px;}
+    .leg{display:flex;align-items:center;gap:5px;font-size:10px;color:#6B7280;}
+    .leg-dot{width:9px;height:9px;border-radius:2px;}
+    .footer{margin-top:24px;font-size:10px;color:#9CA3AF;text-align:center;border-top:1px solid #F1F5F9;padding-top:12px;}
+    @media print{.no-print{display:none!important;}}
+  </style></head><body>
+  <div class="no-print" style="margin-bottom:16px;">
+    <button onclick="window.print()" style="background:#0B1E3D;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;margin-right:8px;">🖨️ Print / Save PDF</button>
+    <button onclick="window.close()" style="background:#F1F5F9;color:#0B1E3D;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;">✕ Close</button>
+  </div>
+  <h1>🏦 Card EPOS — Analytics Report</h1>
+  <div class="sub">Period: ${periodLabel} &nbsp;|&nbsp; ${from} to ${to} &nbsp;|&nbsp; Generated: ${new Date().toLocaleString('en-IN')}</div>
+  <div class="tiles">
+    <div class="tile t-blue"><div class="tile-val">${total}</div><div class="tile-lbl">Total Batches</div></div>
+    <div class="tile t-green"><div class="tile-val">${settled}</div><div class="tile-lbl">Settled</div></div>
+    <div class="tile t-orange"><div class="tile-val">${avg}</div><div class="tile-lbl">Avg/Day</div></div>
+    <div class="tile t-red"><div class="tile-val">${pending}</div><div class="tile-lbl">Pending</div></div>
+  </div>
+  <div class="section">
+    <div class="section-title">📅 Month-on-Month Comparison</div>
+    <div class="an-mom-wrap">${momHTML}</div>
+    <div class="legend">
+      <div class="leg"><div class="leg-dot" style="background:#0B1E3D;"></div>Batches</div>
+      <div class="leg"><div class="leg-dot" style="background:#10B981;"></div>Received</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">📆 Weekly Trend</div>
+    ${weeklyHTML}
+  </div>
+  <div class="footer">Card EPOS Checker &nbsp;|&nbsp; DSM Pump Star</div>
+  </body></html>`);
+  win.document.close();
+}
 
 // ── EPOS ANALYTICS ───────────────────────────────────────────────────────────
 let _eposAnPeriod = 'week';
