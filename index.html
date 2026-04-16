@@ -784,8 +784,16 @@ function updateTopbar(){
 let curTab='dsm';
 function switchTab(tab){
   curTab=tab;
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  // Hide log page first (it's not a .page div)
   const _lp=document.getElementById('page-log');if(_lp)_lp.style.display='none';
+  // If log tab - show it directly and return, no company check needed
+  if(tab==='log'){
+    document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['dash','dsm','recv','report','ledger','analytics','log','settings'][i]===tab));
+    if(_lp)_lp.style.display='block';
+    renderEPOSLog();
+    return;
+  }
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['dash','dsm','recv','report','ledger','analytics','log','settings'][i]===tab));
   document.getElementById('page-'+(tab==='companies'?'companies':tab)).classList.add('active');
   if(tab==='companies'){renderCompanies();return;}
@@ -795,7 +803,6 @@ function switchTab(tab){
   if(tab==='report'){populateRepTid();refreshReport();}
   if(tab==='ledger'){initLedgerTab();}
   if(tab==='analytics'){refreshEPOSAnalytics();}
-  if(tab==='log'){document.getElementById('page-log').style.display='block';renderEPOSLog();}
   if(tab==='settings'){renderTIDs();renderHolidays();}
 }
 
