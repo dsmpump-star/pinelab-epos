@@ -1044,8 +1044,7 @@ async function saveDSM(){
   refreshDSM(); save();
   sendPushNotification('Card EPOS — Entry Saved', `Batch #${batch}  ${fmtAmt(amount)}  (${tid})`);
   setSyncStatus('syncing');
-  await apiPost({action:'saveTransaction',data:{...entry,companyId:db.activeCompanyId,fy:getCurrentFY()}});
-  setSyncStatus('ok');
+  try{await apiPost({action:'saveTransaction',data:{...entry,companyId:db.activeCompanyId,fy:getCurrentFY()}});}finally{setSyncStatus('ok');}
 }
 
 async function delTxn(id){
@@ -1055,8 +1054,7 @@ async function delTxn(id){
   co().transactions=co().transactions.filter(t=>t.id!==id);
   refreshDSM(); save(); toast('Deleted','err');
   setSyncStatus('syncing');
-  await apiPost({action:'deleteTransaction',id,companyId:db.activeCompanyId,fy:getCurrentFY()});
-  setSyncStatus('ok');
+  try{await apiPost({action:'deleteTransaction',id,companyId:db.activeCompanyId,fy:getCurrentFY()});}finally{setSyncStatus('ok');}
 }
 
 function editTxn(id){
@@ -1085,8 +1083,7 @@ async function saveEditTxn(id){
   eposLog('edit',`Edited Batch #${batch} — TID:${tid} — ${fmtAmt(amount)}`);
   closeModal();refreshDSM();save();toast('Entry updated ✓');
   setSyncStatus('syncing');
-  await apiPost({action:'updateTransaction',data:{...co().transactions[i>=0?i:0],companyId:db.activeCompanyId},fy:getCurrentFY()});
-  setSyncStatus('ok');
+  try{await apiPost({action:'updateTransaction',data:{...co().transactions[i>=0?i:0],companyId:db.activeCompanyId},fy:getCurrentFY()});}finally{setSyncStatus('ok');}
 }
 
 function refreshDSM(){
@@ -1160,16 +1157,14 @@ async function saveRecv(){
   toast(`Saved — ${fmtAmt(amount)}`);
   refreshRecv(); save();
   setSyncStatus('syncing');
-  await apiPost({action:'saveReceived',data:{...entry,companyId:db.activeCompanyId},fy:getCurrentFY()});
-  setSyncStatus('ok');
+  try{await apiPost({action:'saveReceived',data:{...entry,companyId:db.activeCompanyId},fy:getCurrentFY()});}finally{setSyncStatus('ok');}
 }
 async function delRecv(id){
   if(!confirm('Delete this received entry?'))return;
   co().received=co().received.filter(r=>r.id!==id);
   refreshRecv(); save(); toast('Deleted','err');
   setSyncStatus('syncing');
-  await apiPost({action:'deleteReceived',id,companyId:db.activeCompanyId,fy:getCurrentFY()});
-  setSyncStatus('ok');
+  try{await apiPost({action:'deleteReceived',id,companyId:db.activeCompanyId,fy:getCurrentFY()});}finally{setSyncStatus('ok');}
 }
 function editRecv(id){
   const r=co().received.find(x=>x.id===id);if(!r)return;
@@ -1193,8 +1188,7 @@ async function saveEditRecv(id){
   if(i>=0)co().received[i]={...co().received[i],date,amount,note};
   closeModal();refreshRecv();save();toast('Updated ✓');
   setSyncStatus('syncing');
-  await apiPost({action:'updateReceived',data:{...co().received[i>=0?i:0],companyId:db.activeCompanyId},fy:getCurrentFY()});
-  setSyncStatus('ok');
+  try{await apiPost({action:'updateReceived',data:{...co().received[i>=0?i:0],companyId:db.activeCompanyId},fy:getCurrentFY()});}finally{setSyncStatus('ok');}
 }
 
 function refreshRecv(){
