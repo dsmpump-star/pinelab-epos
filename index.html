@@ -586,11 +586,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </div>
 
 <!-- ═══ LOG ═══ -->
-<div id="page-log" style="display:none;position:fixed;top:130px;left:0;right:0;bottom:0;overflow-y:auto;background:#f0f4f8;padding:16px;z-index:100;">
-  <p style="font-size:16px;font-weight:900;color:#000;margin-bottom:16px;">📋 Activity Log</p>
-  <button onclick="eposLogTest()" style="display:block;width:100%;background:#0B1E3D;color:#fff;border:none;border-radius:10px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px;">🧪 Write Test Entry</button>
-  <button onclick="eposLogDebug()" style="display:block;width:100%;background:#fff;color:#000;border:2px solid #000;border-radius:10px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:16px;">🔍 Check Storage</button>
-  <div id="epos-log-list" style="color:#000;"></div>
+<div id="page-log" style="display:none;position:fixed;top:130px;left:0;right:0;bottom:0;overflow-y:auto;background:#F8FAFC;padding:16px 15px 100px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;">
+    <div style="font-size:15px;font-weight:800;color:#0B1E3D;">📋 Activity Log</div>
+    <button onclick="clearEPOSLog()" style="background:transparent;border:1.5px solid #FECACA;color:#DC2626;font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;">🗑 Clear</button>
+  </div>
+  <div id="epos-log-list"></div>
 </div>
 
 <div class="toast" id="toast"></div>
