@@ -32,8 +32,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .brand-texts .brand-sub{font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px;}
 .co-switch-btn{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.22);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:700;color:#fff;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;}
 .co-switch-btn:active{background:rgba(255,255,255,.22);}
-.tabs{display:flex;gap:3px;background:rgba(255,255,255,.09);border-radius:11px;padding:3px;}
-.tab{flex:1;text-align:center;padding:8px 4px;border-radius:8px;font-size:11px;font-weight:700;color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;text-transform:uppercase;}
+.tabs{display:flex;gap:3px;background:rgba(255,255,255,.09);border-radius:11px;padding:3px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{flex-shrink:0;text-align:center;padding:8px 8px;border-radius:8px;font-size:10px;font-weight:700;color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;text-transform:uppercase;white-space:nowrap;}
 .tab.active{background:var(--accent);color:var(--navy);}
 .page{display:none;padding:16px 15px 110px;animation:fi .22s ease;}
 .page.active{display:block;}
@@ -849,9 +850,7 @@ async function addCompany(){
   document.getElementById('new-co-name').value='';
   document.getElementById('new-co-code').value='';
   renderCompanies(); save(); toast(`${name} added ✓`);
-  setSyncStatus('syncing');
-  await apiPost({action:'saveCompany',data:newCo});
-  setSyncStatus('ok');
+  apiPost({action:'saveCompany',data:newCo}).then(r=>setSyncStatus(r.success?'ok':'err')).catch(()=>setSyncStatus('err'));
 }
 
 function editCompany(id){
@@ -883,9 +882,7 @@ async function saveEditCompany(id){
   const i=db.companies.findIndex(c=>c.id===id);
   if(i>=0)db.companies[i]={...db.companies[i],name,code,color};
   closeModal();renderCompanies();updateTopbar();renderTIDs();save();toast('Company updated ✓');
-  setSyncStatus('syncing');
-  await apiPost({action:'updateCompany',data:db.companies[i>=0?i:0]});
-  setSyncStatus('ok');
+  apiPost({action:'updateCompany',data:db.companies[i>=0?i:0]}).then(r=>setSyncStatus(r.success?'ok':'err')).catch(()=>setSyncStatus('err'));
 }
 
 async function deleteCompany(id){
@@ -893,9 +890,7 @@ async function deleteCompany(id){
   db.companies=db.companies.filter(c=>c.id!==id);
   delete db.data[id];
   renderCompanies(); save(); toast('Company deleted','err');
-  setSyncStatus('syncing');
-  await apiPost({action:'deleteCompany',id});
-  setSyncStatus('ok');
+  apiPost({action:'deleteCompany',id}).then(r=>setSyncStatus(r.success?'ok':'err')).catch(()=>setSyncStatus('err'));
 }
 
 // ── TID MANAGEMENT ─────────────────────────────────────────────────────────
@@ -967,16 +962,12 @@ async function addTID(){
   if(!val)return toast('Enter a TID','err');
   if(co().tids.includes(val))return toast('TID already exists','err');
   co().tids.push(val); inp.value=''; renderTIDs(); toast(`${val} added`);
-  setSyncStatus('syncing');
-  await apiPost({action:'saveTID',companyId:db.activeCompanyId,tid:val});
-  setSyncStatus('ok'); save();
+  apiPost({action:'saveTID',companyId:db.activeCompanyId,tid:val}).then(r=>setSyncStatus(r.success?'ok':'err')).catch(()=>setSyncStatus('err')); save();
 }
 async function removeTID(t){
   if(co().transactions.some(x=>x.tid===t))return toast('Cannot remove — has transactions','err');
   co().tids=co().tids.filter(x=>x!==t); renderTIDs(); toast(`${t} removed`,'err');
-  setSyncStatus('syncing');
-  await apiPost({action:'deleteTID',companyId:db.activeCompanyId,tid:t});
-  setSyncStatus('ok'); save();
+  apiPost({action:'deleteTID',companyId:db.activeCompanyId,tid:t}).then(r=>setSyncStatus(r.success?'ok':'err')).catch(()=>setSyncStatus('err')); save();
 }
 function populateRepTid(){
   const s=document.getElementById('rep-tid'),c=s.value||'ALL';
@@ -1020,7 +1011,6 @@ async function saveDSM(){
   document.getElementById('dsm-batch').value=parseInt(batch)+1;
   document.getElementById('dsm-amount').value='';
   document.getElementById('dsm-amount').focus();
-  eposLog('save', `Saved Batch #${batch} — TID: ${tid} — ${fmtAmt(amount)}`);
   eposLog('save',`Saved Batch #${batch} — TID: ${tid} — ${fmtAmt(amount)}`);
   toast(`Saved ✓  Batch #${batch}  ${fmtAmt(amount)}`);
   refreshDSM(); save();
@@ -1031,9 +1021,7 @@ async function saveDSM(){
 async function delTxn(id){
   if(!confirm('Delete this entry?'))return;
   const _delE=co().transactions.find(t=>t.id===id);
-  if(_delE)eposLog('delete',`Deleted Batch #${_delE.batch} — TID: ${_delE.tid} — ${fmtAmt(_delE.amount)}`);
-  const _dE=co().transactions.find(t=>t.id===id);
-  if(_dE)eposLog('delete',`Deleted Batch #${_dE.batch} — ${_dE.tid} — ${fmtAmt(_dE.amount)}`);
+  if(_delE)eposLog('delete',`Deleted Batch #${_delE.batch} — ${_delE.tid} — ${fmtAmt(_delE.amount)}`);
   co().transactions=co().transactions.filter(t=>t.id!==id);
   refreshDSM(); save(); toast('Deleted','err');
   apiPost({action:'deleteTransaction',id,companyId:db.activeCompanyId,fy:getCurrentFY()}).then(r=>setSyncStatus(r.success?'ok':'err')).catch(()=>setSyncStatus('err'));
@@ -1138,17 +1126,13 @@ async function saveRecv(){
   document.getElementById('recv-note').value='';
   toast(`Saved — ${fmtAmt(amount)}`);
   refreshRecv(); save();
-  setSyncStatus('syncing');
-  await apiPost({action:'saveReceived',data:{...entry,companyId:db.activeCompanyId},fy:getCurrentFY()});
-  setSyncStatus('ok');
+  apiPost({action:'saveReceived',data:{...entry,companyId:db.activeCompanyId},fy:getCurrentFY()}).then(r=>setSyncStatus(r.success?'ok':'err')).catch(()=>setSyncStatus('err'));
 }
 async function delRecv(id){
   if(!confirm('Delete this received entry?'))return;
   co().received=co().received.filter(r=>r.id!==id);
   refreshRecv(); save(); toast('Deleted','err');
-  setSyncStatus('syncing');
-  await apiPost({action:'deleteReceived',id,companyId:db.activeCompanyId,fy:getCurrentFY()});
-  setSyncStatus('ok');
+  apiPost({action:'deleteReceived',id,companyId:db.activeCompanyId,fy:getCurrentFY()}).then(r=>setSyncStatus(r.success?'ok':'err')).catch(()=>setSyncStatus('err'));
 }
 function editRecv(id){
   const r=co().received.find(x=>x.id===id);if(!r)return;
@@ -1171,9 +1155,7 @@ async function saveEditRecv(id){
   const i=co().received.findIndex(r=>r.id===id);
   if(i>=0)co().received[i]={...co().received[i],date,amount,note};
   closeModal();refreshRecv();save();toast('Updated ✓');
-  setSyncStatus('syncing');
-  await apiPost({action:'updateReceived',data:{...co().received[i>=0?i:0],companyId:db.activeCompanyId},fy:getCurrentFY()});
-  setSyncStatus('ok');
+  apiPost({action:'updateReceived',data:{...co().received[i>=0?i:0],companyId:db.activeCompanyId},fy:getCurrentFY()}).then(r=>setSyncStatus(r.success?'ok':'err')).catch(()=>setSyncStatus('err'));
 }
 
 function refreshRecv(){
@@ -1527,9 +1509,7 @@ async function confirmReset(){
   co().transactions=[];co().received=[];save();
   closeModal();refreshDSM();refreshRecv();refreshReport();
   toast(`${coInfo().name} data cleared ✓`);
-  setSyncStatus('syncing');
-  await apiPost({action:'resetCompany',companyId:db.activeCompanyId});
-  setSyncStatus('ok');
+  apiPost({action:'resetCompany',companyId:db.activeCompanyId}).then(r=>setSyncStatus(r.success?'ok':'err')).catch(()=>setSyncStatus('err'));
 }
 
 
@@ -1543,14 +1523,11 @@ async function setOverride(id,status){
   if(!db.overrides) db.overrides={};
   if(status==='auto'){
     delete db.overrides[id];
-    setSyncStatus('syncing');
-    await apiPost({action:'deleteOverride',txnId:id,fy:getCurrentFY()});
+    apiPost({action:'deleteOverride',txnId:id,fy:getCurrentFY()}).then(r=>setSyncStatus(r.success?'ok':'err')).catch(()=>setSyncStatus('err'));
   } else {
     db.overrides[id]=status;
-    setSyncStatus('syncing');
-    await apiPost({action:'saveOverride',txnId:id,status,fy:getCurrentFY()});
+    apiPost({action:'saveOverride',txnId:id,status,fy:getCurrentFY()}).then(r=>setSyncStatus(r.success?'ok':'err')).catch(()=>setSyncStatus('err'));
   }
-  setSyncStatus('ok');
   refreshRecv();
   if(curTab==='report') refreshReport();
   toast('Status updated ✓');
@@ -1769,9 +1746,7 @@ async function saveLedgerOB(){
   // Save to localStorage as cache
   localStorage.setItem(LDG_OB_KEY+'_'+(db.activeCompanyId||'')+'_'+fy, val);
   // Save to Google Sheets so all devices sync
-  setSyncStatus('syncing');
-  await apiPost({action:'saveOpeningBalance', amount:val, fy});
-  setSyncStatus('ok');
+  apiPost({action:'saveOpeningBalance', amount:val, fy}).then(r=>setSyncStatus(r.success?'ok':'err')).catch(()=>setSyncStatus('err'));
   toast('Opening balance saved — '+fmtAmt(val));
 }
 
