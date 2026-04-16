@@ -225,6 +225,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div class="tab" onclick="switchTab('report')">📊 Report</div>
     <div class="tab" onclick="switchTab('ledger')">📒 Ledger</div>
     <div class="tab" onclick="switchTab('analytics')">📈 Analytics</div>
+    <div class="tab" onclick="switchTab('log')">📋 Log</div>
     <div class="tab" onclick="switchTab('settings')">⚙️ Settings</div>
   </div>
 </div>
@@ -577,6 +578,16 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </div>
 
 
+<!-- ═══ ACTIVITY LOG ═══ -->
+<div class="page" id="page-log">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;">
+    <div style="font-size:14px;font-weight:800;color:#0B1E3D;">📋 Activity Log</div>
+    <button onclick="clearEPOSLog()" style="background:transparent;border:1.5px solid #FECACA;color:var(--red);font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;">🗑 Clear</button>
+  </div>
+  <div style="font-size:11px;color:var(--muted);margin-bottom:13px;">Last 500 events — saves, edits, deletes, batch gaps</div>
+  <div id="epos-log-list"></div>
+</div>
+
 <div class="toast" id="toast"></div>
 <div class="modal-overlay" id="modal" onclick="maybeCloseModal(event)">
   <div class="modal-box"><div class="modal-handle"></div><div id="modal-body"></div></div>
@@ -769,7 +780,7 @@ let curTab='dsm';
 function switchTab(tab){
   curTab=tab;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['dash','dsm','recv','report','ledger','analytics','settings'][i]===tab));
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['dash','dsm','recv','report','ledger','analytics','log','settings'][i]===tab));
   document.getElementById('page-'+(tab==='companies'?'companies':tab)).classList.add('active');
   if(tab==='companies'){renderCompanies();return;}
   if(!db.activeCompanyId){switchTab('companies');return;}
@@ -975,12 +986,28 @@ async function saveDSM(){
   if(!batch)return toast('Enter batch number','err');
   if(!date)return toast('Select a date','err');
   if(!amount||amount<=0)return toast('Enter a valid amount','err');
+  // Batch gap detection
+  {
+    const tidBatches=co().transactions.filter(t=>t.tid===tid).map(t=>Number(t.batch)).filter(Boolean).sort((a,b)=>a-b);
+    const newB=Number(batch);
+    if(tidBatches.length>0){
+      const maxB=Math.max(...tidBatches);
+      if(newB>maxB+1){
+        const missed=[];for(let i=maxB+1;i<newB;i++)missed.push(i);
+        if(missed.length<=10){
+          eposLog('gap',`Batch gap on ${tid}: Missed #${missed.join(', #')} — Last:#${maxB} → New:#${newB}`);
+          if(!confirm(`⚠️ Batch gap detected for ${tid}!\nMissed: #${missed.join(', #')}\nLast saved: #${maxB} → New: #${newB}\nContinue?`))return;
+        }
+      }
+    }
+  }
   const entry={id:uid(),tid,batch,date,amount,createdAt:new Date().toISOString()};
   co().transactions.push(entry);
   // Auto-advance batch for this TID
   document.getElementById('dsm-batch').value=parseInt(batch)+1;
   document.getElementById('dsm-amount').value='';
   document.getElementById('dsm-amount').focus();
+  eposLog('save', `Saved Batch #${batch} — TID: ${tid} — ${fmtAmt(amount)}`);
   toast(`Saved ✓  Batch #${batch}  ${fmtAmt(amount)}`);
   refreshDSM(); save();
   sendPushNotification('Card EPOS — Entry Saved', `Batch #${batch}  ${fmtAmt(amount)}  (${tid})`);
@@ -991,6 +1018,8 @@ async function saveDSM(){
 
 async function delTxn(id){
   if(!confirm('Delete this entry?'))return;
+  const _delE=co().transactions.find(t=>t.id===id);
+  if(_delE)eposLog('delete',`Deleted Batch #${_delE.batch} — TID: ${_delE.tid} — ${fmtAmt(_delE.amount)}`);
   co().transactions=co().transactions.filter(t=>t.id!==id);
   refreshDSM(); save(); toast('Deleted','err');
   setSyncStatus('syncing');
@@ -1021,6 +1050,7 @@ async function saveEditTxn(id){
   if(!tid||!batch||!date||!amount||amount<=0)return toast('Fill all fields','err');
   const i=co().transactions.findIndex(t=>t.id===id);
   if(i>=0)co().transactions[i]={...co().transactions[i],tid,batch,date,amount};
+  eposLog('edit',`Edited Batch #${batch} — TID:${tid} — ${fmtAmt(amount)}`);
   closeModal();refreshDSM();save();toast('Entry updated ✓');
   setSyncStatus('syncing');
   await apiPost({action:'updateTransaction',data:{...co().transactions[i>=0?i:0],companyId:db.activeCompanyId},fy:getCurrentFY()});
@@ -2566,6 +2596,34 @@ function refreshEPOSAnalytics(){
 }
 
 
+
+
+// ── ACTIVITY LOG ─────────────────────────────────────────────────────────────
+const EPOS_LOG_KEY = 'epos_activity_log';
+const EPOS_LOG_MAX = 500;
+
+function eposLog(type, msg) {
+  const logs = JSON.parse(localStorage.getItem(EPOS_LOG_KEY) || '[]');
+  const icons = {save:'➕', edit:'✏️', delete:'🗑️', gap:'⚠️', recv:'💰'};
+  logs.unshift({type, msg, icon: icons[type]||'📋', time:new Date().toISOString(), ts:new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})});
+  if(logs.length > EPOS_LOG_MAX) logs.length = EPOS_LOG_MAX;
+  localStorage.setItem(EPOS_LOG_KEY, JSON.stringify(logs));
+}
+
+function renderEPOSLog() {
+  const logs = JSON.parse(localStorage.getItem(EPOS_LOG_KEY) || '[]');
+  const el = document.getElementById('epos-log-list');
+  if(!el) return;
+  if(!logs.length){el.innerHTML='<div class="empty" style="padding:30px 0;"><div class="ico">📋</div><p>No activity yet</p></div>';return;}
+  el.innerHTML = logs.map(l=>`<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);"><div style="font-size:18px;flex-shrink:0;">${l.icon}</div><div style="flex:1;"><div style="font-size:12px;font-weight:600;color:var(--text);">${l.msg}</div><div style="font-size:10px;color:var(--muted);margin-top:2px;">${l.ts}</div></div></div>`).join('');
+}
+
+function clearEPOSLog() {
+  if(!confirm('Clear all activity log?'))return;
+  localStorage.removeItem(EPOS_LOG_KEY);
+  renderEPOSLog();
+  toast('Log cleared');
+}
 
 // ── PWA SERVICE WORKER + INSTALL PROMPT ────────────────────────────────────
 if('serviceWorker' in navigator){
