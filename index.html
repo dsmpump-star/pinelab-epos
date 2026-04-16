@@ -2628,9 +2628,19 @@ function renderEPOSLog() {
   const raw = localStorage.getItem(EPOS_LOG_KEY);
   const logs = JSON.parse(raw || '[]');
   const el = document.getElementById('epos-log-list');
-  if(!el){ console.error('epos-log-list not found!'); return; }
-  if(!logs.length){el.innerHTML='<div class="empty" style="padding:20px 0;"><div class="ico">📋</div><p>No activity yet — tap the test button above or save an entry</p></div>';return;}
-  el.innerHTML = logs.map(l=>`<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);"><div style="font-size:18px;flex-shrink:0;">${l.icon}</div><div style="flex:1;"><div style="font-size:12px;font-weight:600;color:var(--text);">${l.msg}</div><div style="font-size:10px;color:var(--muted);margin-top:2px;">${l.ts}</div></div></div>`).join('');
+  if(!el) return;
+  if(!logs.length){
+    el.innerHTML='<p style="color:#333;font-size:13px;padding:20px 0;text-align:center;">No activity yet — save an entry first</p>';
+    return;
+  }
+  el.innerHTML = logs.map(l=>
+    '<div style="display:flex;gap:10px;padding:12px 0;border-bottom:1px solid #ddd;">'
+    +'<div style="font-size:20px;flex-shrink:0;">'+l.icon+'</div>'
+    +'<div style="flex:1;">'
+    +'<div style="font-size:13px;font-weight:600;color:#000;">'+l.msg+'</div>'
+    +'<div style="font-size:11px;color:#555;margin-top:3px;">'+l.ts+'</div>'
+    +'</div></div>'
+  ).join('');
 }
 function clearEPOSLog() {
   if(!confirm('Clear all activity log?'))return;
