@@ -595,6 +595,34 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </div>
 
 <script>
+// ── ACTIVITY LOG ─────────────────────────────────────────────────────────────
+const EPOS_LOG_KEY = 'epos_activity_log';
+const EPOS_LOG_MAX = 500;
+
+function eposLog(type, msg) {
+  const logs = JSON.parse(localStorage.getItem(EPOS_LOG_KEY) || '[]');
+  const icons = {save:'➕', edit:'✏️', delete:'🗑️', gap:'⚠️', recv:'💰'};
+  logs.unshift({type, msg, icon: icons[type]||'📋', time:new Date().toISOString(), ts:new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})});
+  if(logs.length > EPOS_LOG_MAX) logs.length = EPOS_LOG_MAX;
+  localStorage.setItem(EPOS_LOG_KEY, JSON.stringify(logs));
+}
+
+function renderEPOSLog() {
+  const logs = JSON.parse(localStorage.getItem(EPOS_LOG_KEY) || '[]');
+  const el = document.getElementById('epos-log-list');
+  if(!el) return;
+  if(!logs.length){el.innerHTML='<div class="empty" style="padding:30px 0;"><div class="ico">📋</div><p>No activity yet</p></div>';return;}
+  el.innerHTML = logs.map(l=>`<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);"><div style="font-size:18px;flex-shrink:0;">${l.icon}</div><div style="flex:1;"><div style="font-size:12px;font-weight:600;color:var(--text);">${l.msg}</div><div style="font-size:10px;color:var(--muted);margin-top:2px;">${l.ts}</div></div></div>`).join('');
+}
+
+function clearEPOSLog() {
+  if(!confirm('Clear all activity log?'))return;
+  localStorage.removeItem(EPOS_LOG_KEY);
+  renderEPOSLog();
+  toast('Log cleared');
+}
+
+
 // ─────────────────────────────────────────────────────────────────────────────
 // DATA MODEL
 // db = {
@@ -2602,32 +2630,6 @@ function refreshEPOSAnalytics(){
 
 
 
-// ── ACTIVITY LOG ─────────────────────────────────────────────────────────────
-const EPOS_LOG_KEY = 'epos_activity_log';
-const EPOS_LOG_MAX = 500;
-
-function eposLog(type, msg) {
-  const logs = JSON.parse(localStorage.getItem(EPOS_LOG_KEY) || '[]');
-  const icons = {save:'➕', edit:'✏️', delete:'🗑️', gap:'⚠️', recv:'💰'};
-  logs.unshift({type, msg, icon: icons[type]||'📋', time:new Date().toISOString(), ts:new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})});
-  if(logs.length > EPOS_LOG_MAX) logs.length = EPOS_LOG_MAX;
-  localStorage.setItem(EPOS_LOG_KEY, JSON.stringify(logs));
-}
-
-function renderEPOSLog() {
-  const logs = JSON.parse(localStorage.getItem(EPOS_LOG_KEY) || '[]');
-  const el = document.getElementById('epos-log-list');
-  if(!el) return;
-  if(!logs.length){el.innerHTML='<div class="empty" style="padding:30px 0;"><div class="ico">📋</div><p>No activity yet</p></div>';return;}
-  el.innerHTML = logs.map(l=>`<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);"><div style="font-size:18px;flex-shrink:0;">${l.icon}</div><div style="flex:1;"><div style="font-size:12px;font-weight:600;color:var(--text);">${l.msg}</div><div style="font-size:10px;color:var(--muted);margin-top:2px;">${l.ts}</div></div></div>`).join('');
-}
-
-function clearEPOSLog() {
-  if(!confirm('Clear all activity log?'))return;
-  localStorage.removeItem(EPOS_LOG_KEY);
-  renderEPOSLog();
-  toast('Log cleared');
-}
 
 // ── PWA SERVICE WORKER + INSTALL PROMPT ────────────────────────────────────
 if('serviceWorker' in navigator){
