@@ -30,13 +30,11 @@ messaging.onBackgroundMessage(payload => {
 });
 
 // PWA cache logic
-const CACHE_NAME = 'card-epos-v3';
+const CACHE_NAME = 'card-epos-v4';
 const ASSETS = [
   '/pinelab-epos/index.html',
-  '/pinelab-epos/manifest.json',
   '/pinelab-epos/icon-192.png',
-  '/pinelab-epos/icon-512.png',
-  '/pinelab-epos/firebase-messaging-sw.js'
+  '/pinelab-epos/icon-512.png'
 ];
 
 self.addEventListener('install', e => {
