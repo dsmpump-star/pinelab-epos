@@ -586,7 +586,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </div>
 
 <!-- ═══ LOG ═══ -->
-<div class="page" id="page-log" style="display:none;padding:16px 15px 110px;">
+<div id="page-log" style="display:none;padding:16px 15px 110px;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;">
     <div style="font-size:14px;font-weight:800;color:#0B1E3D;">📋 Activity Log</div>
     <button onclick="clearEPOSLog()" style="background:transparent;border:1.5px solid #FECACA;color:var(--red);font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;">🗑 Clear</button>
@@ -787,7 +787,8 @@ function updateTopbar(){
 let curTab='dsm';
 function switchTab(tab){
   curTab=tab;
-  document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');if(p.id==='page-log')p.style.display='none';});
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const _lp=document.getElementById('page-log');if(_lp)_lp.style.display='none';
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['dash','dsm','recv','report','ledger','analytics','log','settings'][i]===tab));
   document.getElementById('page-'+(tab==='companies'?'companies':tab)).classList.add('active');
   if(tab==='companies'){renderCompanies();return;}
@@ -797,7 +798,7 @@ function switchTab(tab){
   if(tab==='report'){populateRepTid();refreshReport();}
   if(tab==='ledger'){initLedgerTab();}
   if(tab==='analytics'){refreshEPOSAnalytics();}
-  if(tab==='log'){const lp=document.getElementById('page-log');if(lp)lp.style.display='block';renderEPOSLog();}
+  if(tab==='log'){document.getElementById('page-log').style.display='block';renderEPOSLog();}
   if(tab==='settings'){renderTIDs();renderHolidays();}
 }
 
