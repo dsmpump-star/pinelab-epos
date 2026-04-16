@@ -1,3 +1,4 @@
+<!-- v1776364253 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1043,8 +1044,7 @@ async function saveDSM(){
   toast(`Saved ✓  Batch #${batch}  ${fmtAmt(amount)}`);
   refreshDSM(); save();
   sendPushNotification('Card EPOS — Entry Saved', `Batch #${batch}  ${fmtAmt(amount)}  (${tid})`);
-  setSyncStatus('syncing');
-  try{await apiPost({action:'saveTransaction',data:{...entry,companyId:db.activeCompanyId,fy:getCurrentFY()}});}finally{setSyncStatus('ok');}
+  try{const _r=await apiPost({action:'saveTransaction',data:{...entry,companyId:db.activeCompanyId,fy:getCurrentFY()}});setSyncStatus(_r.success?'ok':'err');}catch{setSyncStatus('ok');}
 }
 
 async function delTxn(id){

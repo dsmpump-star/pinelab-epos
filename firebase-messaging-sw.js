@@ -30,7 +30,7 @@ messaging.onBackgroundMessage(payload => {
 });
 
 // PWA cache logic
-const CACHE_NAME = 'card-epos-v4';
+const CACHE_NAME = 'card-epos-v5';
 const ASSETS = [
   '/pinelab-epos/index.html',
   '/pinelab-epos/icon-192.png',
