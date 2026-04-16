@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Card EPOS Checker</title>
 
 <!-- PWA -->
@@ -709,9 +712,9 @@ async function loadFromSheet(){
 
 async function createDefaultCompany(){
   const id='co_'+Date.now();
-  await apiPost({action:'saveCompany',data:{id,name:'PineLab',code:'PL',color:'#1B5FBF',createdAt:new Date().toISOString()}});
+  apiPost({action:'saveCompany',data:{id,name:'PineLab',code:'PL',color:'#1B5FBF',createdAt:new Date().toISOString()}}).catch(()=>{});
   for(const tid of ['TID-531833','TID-531834','TID-531835','TID-531836','TID-72588055']){
-    await apiPost({action:'saveTID',companyId:id,tid});
+    apiPost({action:'saveTID',companyId:id,tid}).catch(()=>{});
   }
   db.activeCompanyId=id;
 }
@@ -2145,7 +2148,7 @@ async function autoClearOverrides(){
   if(!toClear.length) return;
   for(const id of toClear){
     delete db.overrides[id];
-    await apiPost({action:'deleteOverride', txnId:id, fy:getCurrentFY()});
+    apiPost({action:'deleteOverride', txnId:id, fy:getCurrentFY()}).catch(()=>{});
   }
   if(toClear.length>0){
     toast(`Auto-cleared ${toClear.length} resolved override${toClear.length>1?'s':''} ✓`);
@@ -2594,7 +2597,8 @@ function eposLog(type, msg) {
     logs.unshift({type, msg, icon:icons[type]||'📋', ts:new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})});
     if(logs.length > EPOS_LOG_MAX) logs.length = EPOS_LOG_MAX;
     localStorage.setItem(EPOS_LOG_KEY, JSON.stringify(logs));
-  } catch(e) {}
+    console.log('[EPOS LOG]', type, msg, '| total:', logs.length);
+  } catch(e) { console.error('[EPOS LOG ERROR]', e); }
 }
 function renderEPOSLog() {
   const logs = JSON.parse(localStorage.getItem(EPOS_LOG_KEY) || '[]');
