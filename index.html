@@ -32,8 +32,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .brand-texts .brand-sub{font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px;}
 .co-switch-btn{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.22);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:700;color:#fff;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;}
 .co-switch-btn:active{background:rgba(255,255,255,.22);}
-.tabs{display:flex;gap:3px;background:rgba(255,255,255,.09);border-radius:11px;padding:3px;}
-.tab{flex:1;text-align:center;padding:8px 4px;border-radius:8px;font-size:11px;font-weight:700;color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;text-transform:uppercase;}
+.tabs{display:flex;gap:3px;background:rgba(255,255,255,.09);border-radius:11px;padding:3px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{flex-shrink:0;text-align:center;padding:8px 8px;border-radius:8px;font-size:10px;font-weight:700;color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;text-transform:uppercase;white-space:nowrap;}
 .tab.active{background:var(--accent);color:var(--navy);}
 .page{display:none;padding:16px 15px 110px;animation:fi .22s ease;}
 .page.active{display:block;}
@@ -788,6 +789,9 @@ function switchTab(tab){
   if(tab==='recv')refreshRecv();
   if(tab==='report'){populateRepTid();refreshReport();}
   if(tab==='ledger'){initLedgerTab();}
+  if(tab==='analytics'){refreshEPOSAnalytics();}
+  if(tab==='log'){renderEPOSLog();}
+  if(tab==='settings'){renderTIDs();renderHolidays();}
 }
 
 // ── COMPANY MANAGEMENT ─────────────────────────────────────────────────────
