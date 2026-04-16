@@ -15,6 +15,9 @@ const messaging = firebase.messaging();
 
 // Handle background messages (when app is closed/minimized)
 messaging.onBackgroundMessage(payload => {
+  // notification field = FCM already shows it natively on Android
+  // Only show manually for data-only payloads (no notification key)
+  if (payload.notification) return; // browser handles it
   console.log('[FCM] EPOS Background message:', payload);
   const { title, body, icon, link } = payload.data || {};
   self.registration.showNotification(title || 'Card EPOS Checker', {
@@ -27,7 +30,7 @@ messaging.onBackgroundMessage(payload => {
 });
 
 // PWA cache logic
-const CACHE_NAME = 'card-epos-v2';
+const CACHE_NAME = 'card-epos-v3';
 const ASSETS = [
   '/pinelab-epos/index.html',
   '/pinelab-epos/manifest.json',
