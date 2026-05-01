@@ -1776,7 +1776,15 @@ function generateLedger(){
   let recv=co().received.filter(r=>r.date>=from&&r.date<=to);
   if(tid!=='ALL')txns=txns.filter(t=>t.tid===tid);
 
-  const ob=getLedgerOB();
+  // Calculate opening balance: FY OB + all movements BEFORE the from date
+  const fyOB = getLedgerOB();
+  const preTxns = co().transactions.filter(t=>t.date<from&&(tid==='ALL'||t.tid===tid));
+  const preRecv = co().received.filter(r=>r.date<from);
+  const preDr = preTxns.reduce((s,t)=>s+t.amount,0);
+  const preCr = preRecv.reduce((s,r)=>s+r.amount,0);
+  // OB starts as negative of FY opening (amount owed at FY start)
+  // then subtract debits (increase what's owed) and add credits (reduce what's owed)
+  const ob = fyOB - preDr + preCr;
   const totalDr=txns.reduce((s,t)=>s+t.amount,0);
   const totalCr=recv.reduce((s,r)=>s+r.amount,0);
 
