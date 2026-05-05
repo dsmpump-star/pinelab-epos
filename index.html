@@ -1070,11 +1070,27 @@ function refreshDSM(){
     return String(t.batch).includes(q) ||
            t.tid.toLowerCase().includes(q) ||
            String(t.amount).includes(q) ||
-           fmtAmt(t.amount).includes(q);
+           fmtAmt(t.amount).includes(q) ||
+           fmtDate(t.date).includes(q);
   }
 
-  const todayT=fyTxns.filter(t=>t.date===today&&matchSearch(t)).reverse();
-  const recentT=fyTxns.filter(t=>t.date!==today&&matchSearch(t)).reverse().slice(0,40);
+  // Search mode: show ALL matches across all dates
+  if(q){
+    const matched=fyTxns.filter(matchSearch).reverse();
+    document.getElementById('today-count').textContent=`${matched.length} result${matched.length!==1?'s':''}`;
+    const tl=document.getElementById('dsm-today');
+    tl.innerHTML=matched.length?matched.map(t=>eHTML(t,true)).join(''):'<div class="empty"><div class="ico">🔍</div><p>No entries match</p></div>';
+    document.getElementById('recent-count').textContent='';
+    document.getElementById('dsm-recent').innerHTML='';
+    // Init swipe on search results
+    document.querySelectorAll('.entry-item').forEach(el=>{const id=el.id.replace('ei-','');if(id)initSwipe(el,id);});
+    if(curTab==='dash')refreshDashboard();
+    return;
+  }
+
+  // Normal mode: today + recent (capped at 40)
+  const todayT=fyTxns.filter(t=>t.date===today).reverse();
+  const recentT=fyTxns.filter(t=>t.date!==today).reverse().slice(0,40);
   document.getElementById('today-count').textContent=`${todayT.length} transaction${todayT.length!==1?'s':''}`;
   const tl=document.getElementById('dsm-today');
   tl.innerHTML=todayT.length===0?'<div class="empty"><div class="ico">📋</div><p>No entries yet for today</p></div>':todayT.map(t=>eHTML(t,true)).join('');
