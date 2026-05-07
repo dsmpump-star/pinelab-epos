@@ -479,6 +479,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div class="export-row">
       <button class="btn btn-accent" onclick="exportLedgerExcel()">⬇ Excel</button>
       <button class="btn btn-primary" onclick="exportLedgerPDF()">⬇ PDF</button>
+      <button onclick="exportColorReport()" style="background:#1D6F42;color:#fff;border:none;border-radius:11px;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer;">🎨 Color<br>Report</button>
     </div>
     <div class="ledger-scroll" style="border-radius:13px;border:1px solid var(--border);">
       <div class="ledger-hdr">
@@ -1356,6 +1357,210 @@ function refreshReport(){
 }
 
 // ── EXPORT EXCEL ───────────────────────────────────────────────────────────
+// ── COLOR-CODED SETTLEMENT REPORT ────────────────────────────────────────────
+function exportColorReport(){
+  const from = document.getElementById('ldg-from').value;
+  const to   = document.getElementById('ldg-to').value;
+  if(!from||!to) return toast('Select date range first','err');
+
+  const txns = co().transactions
+    .filter(t=>t.date>=from&&t.date<=to)
+    .sort((a,b)=>a.date.localeCompare(b.date)||(parseInt(a.batch)-parseInt(b.batch)));
+  const recv = co().received
+    .filter(r=>r.date>=from&&r.date<=to)
+    .sort((a,b)=>a.date.localeCompare(b.date));
+  if(!txns.length&&!recv.length) return toast('No data in range','err');
+
+  const m = computeMatch();
+  const statusMap = {};
+  m.batches.forEach(b=>{ statusMap[b.id]=b.status; });
+
+  // Assign palette colors to settled groups
+  // Group txns by settlement status and cluster
+  const COLORS = {
+    settled:  ['#C6EFCE','#DDEBF7','#FCE4D6','#EAF2FF','#FFF2CC','#E2EFDA','#D9E1F2','#FDE9D9'],
+    pending:  '#FFB3B3',  // light red
+    credit:   '#BDD7EE',  // light blue
+    header:   '#1B4F72',
+    ob:       '#F2F2F2',
+    subtotal: '#D6E4F0',
+    mismatch: '#FFCCCC',
+  };
+
+  // Assign a color group to each settled txn by clustering
+  // Simple approach: group by proximity in date (within 2 days)
+  const settledTxns = txns.filter(t=>statusMap[t.id]==='settled');
+  const pendingTxns = txns.filter(t=>statusMap[t.id]!=='settled');
+
+  // Cluster settled txns into groups (entries sent together)
+  const groups = [];
+  let grp = [];
+  for(let i=0;i<settledTxns.length;i++){
+    if(grp.length===0){ grp.push(settledTxns[i]); continue; }
+    const last = grp[grp.length-1];
+    const dayDiff = (new Date(settledTxns[i].date)-new Date(last.date))/(86400000);
+    if(dayDiff<=3) grp.push(settledTxns[i]);
+    else { groups.push(grp); grp=[settledTxns[i]]; }
+  }
+  if(grp.length) groups.push(grp);
+
+  const txnColorMap = {};
+  groups.forEach((g,gi)=>{
+    const col = COLORS.settled[gi % COLORS.settled.length];
+    g.forEach(t=>{ txnColorMap[t.id]=col; });
+  });
+
+  // Find matching credits for each group
+  const usedRecv = new Set();
+  const recvColorMap = {};
+  groups.forEach((g,gi)=>{
+    const col = COLORS.settled[gi % COLORS.settled.length];
+    const grpTotal = g.reduce((s,t)=>s+t.amount,0);
+    // Find recv entries that sum closest to group total
+    let best=null, bestDiff=Infinity;
+    // Try single recv
+    recv.forEach(r=>{
+      if(usedRecv.has(r.id)) return;
+      const diff = Math.abs(r.amount - grpTotal);
+      if(diff<bestDiff){ bestDiff=diff; best=[r]; }
+    });
+    // If match within 10, assign
+    if(best && bestDiff < grpTotal*0.02+10){
+      best.forEach(r=>{ recvColorMap[r.id]=col; usedRecv.add(r.id); });
+    }
+  });
+  // Remaining recv = unmatched credits (blue)
+  recv.forEach(r=>{ if(!recvColorMap[r.id]) recvColorMap[r.id]=COLORS.credit; });
+
+  // Build combined ledger rows
+  const combined = [
+    ...txns.map(t=>({...t, rowType:'D'})),
+    ...recv.map(r=>({...r, rowType:'C'}))
+  ].sort((a,b)=>a.date.localeCompare(b.date));
+
+  // Calculate OB for the period
+  const fyOB = getLedgerOB();
+  const preTxns = co().transactions.filter(t=>t.date<from);
+  const preRecv = co().received.filter(r=>r.date<from);
+  const ob = fyOB - preTxns.reduce((s,t)=>s+t.amount,0) + preRecv.reduce((s,r)=>s+r.amount,0);
+
+  let bal = ob;
+  const cname = coInfo().name||'Card EPOS';
+
+  // Helper
+  const fmtD = d=>{ if(!d) return ''; const p=d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
+  const fmtN = n=>n!=null&&n!==''?'₹'+Number(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
+  const td = (val,bg,bold,align,color)=>`<td style="padding:7px 9px;border:1px solid #C9C9C9;background:${bg||'#fff'};font-weight:${bold?'700':'400'};text-align:${align||'left'};color:${color||'#000'};white-space:nowrap;">${val}</td>`;
+  const th = (val)=>`<th style="padding:8px 9px;border:1px solid #aaa;background:#1B4F72;color:#fff;font-weight:700;text-align:left;white-space:nowrap;">${val}</th>`;
+
+  // Build rows HTML
+  let rowsHTML = '';
+
+  // Opening balance row
+  rowsHTML += `<tr>
+    <td colspan="5" style="padding:7px 9px;border:1px solid #C9C9C9;background:#F2F2F2;font-weight:700;color:#000;">OPENING BALANCE</td>
+    <td style="padding:7px 9px;border:1px solid #C9C9C9;background:#F2F2F2;font-weight:700;text-align:right;color:${ob<0?'#C00000':'#375623'};">${fmtN(Math.abs(ob))} ${ob<0?'Dr':'Cr'}</td>
+  </tr>`;
+
+  combined.forEach(row=>{
+    if(row.rowType==='D'){
+      bal -= row.amount;
+      const bg = txnColorMap[row.id] || COLORS.pending;
+      const isMismatch = !txnColorMap[row.id];
+      rowsHTML += `<tr>
+        ${td(fmtD(row.date),'#fff',false,'left')}
+        ${td('#'+row.batch, bg, true, 'center')}
+        ${td(row.tid||'', bg)}
+        ${td(isMismatch?'⚠️ PENDING':'✅ SETTLED', isMismatch?COLORS.pending:bg, true, 'center', isMismatch?'#C00000':'#375623')}
+        ${td(fmtN(row.amount), bg, true, 'right')}
+        ${td('', bg, false, 'right')}
+        ${td(fmtN(Math.abs(bal))+' '+(bal<0?'Dr':'Cr'), '#fff', false, 'right', bal<0?'#C00000':'#375623')}
+      </tr>`;
+    } else {
+      bal += row.amount;
+      const bg = recvColorMap[row.id] || COLORS.credit;
+      const isMatched = recvColorMap[row.id] && recvColorMap[row.id]!==COLORS.credit;
+      rowsHTML += `<tr>
+        ${td(fmtD(row.date),'#fff')}
+        ${td('—', bg, false, 'center')}
+        ${td('Credit Received', bg)}
+        ${td(row.note||'', bg)}
+        ${td('', bg)}
+        ${td(fmtN(row.amount), bg, true, 'right', '#1F497D')}
+        ${td(fmtN(Math.abs(bal))+' '+(bal<0?'Dr':'Cr'), '#fff', false, 'right', bal<0?'#C00000':'#375623')}
+      </tr>`;
+    }
+  });
+
+  // Subtotal row
+  const totalDr = txns.reduce((s,t)=>s+t.amount,0);
+  const totalCr = recv.reduce((s,r)=>s+r.amount,0);
+  rowsHTML += `<tr style="background:#D6E4F0;">
+    <td colspan="4" style="padding:7px 9px;border:1px solid #C9C9C9;font-weight:700;color:#000;">SUB TOTAL</td>
+    ${td(fmtN(totalDr),'#D6E4F0',true,'right')}
+    ${td(fmtN(totalCr),'#D6E4F0',true,'right','#1F497D')}
+    <td style="padding:7px 9px;border:1px solid #C9C9C9;"></td>
+  </tr>`;
+  rowsHTML += `<tr style="background:#D6E4F0;">
+    <td colspan="4" style="padding:7px 9px;border:1px solid #C9C9C9;font-weight:700;color:#000;">CLOSING BALANCE (Unsettled)</td>
+    <td colspan="3" style="padding:7px 9px;border:1px solid #C9C9C9;font-weight:700;text-align:right;color:#C00000;">${fmtN(m.totalPending)} Dr</td>
+  </tr>`;
+
+  // Legend
+  const legendItems = [
+    {color:'#C6EFCE',label:'Settled Group 1'},
+    {color:'#DDEBF7',label:'Settled Group 2'},
+    {color:'#FCE4D6',label:'Settled Group 3'},
+    {color:COLORS.pending,label:'⚠️ Pending / Unmatched Debit'},
+    {color:COLORS.credit, label:'💰 Credit Received'},
+  ];
+  const legendHTML = legendItems.map(l=>
+    `<div style="display:inline-flex;align-items:center;gap:6px;margin-right:16px;">
+      <div style="width:14px;height:14px;background:${l.color};border:1px solid #aaa;border-radius:2px;"></div>
+      <span style="font-size:11px;">${l.label}</span>
+    </div>`
+  ).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>${cname} — Color Settlement Report</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:12px;padding:20px;color:#000;}
+    h1{font-size:18px;color:#1B4F72;margin-bottom:4px;}
+    .meta{font-size:11px;color:#666;margin-bottom:16px;}
+    .tiles{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
+    .tile{border-radius:8px;padding:10px 16px;text-align:center;min-width:120px;}
+    .tile-val{font-size:16px;font-weight:800;font-family:monospace;}
+    .tile-lbl{font-size:10px;margin-top:2px;}
+    table{border-collapse:collapse;width:100%;}
+    .no-print{margin-bottom:14px;}
+    @media print{.no-print{display:none!important;}}
+  </style></head><body>
+  <div class="no-print">
+    <button onclick="window.print()" style="background:#1B4F72;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;margin-right:8px;">🖨️ Print / Save PDF</button>
+    <button onclick="window.close()" style="background:#eee;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;">✕ Close</button>
+  </div>
+  <h1>🏦 ${cname} — Color-Coded Settlement Report</h1>
+  <div class="meta">Period: ${fmtD(from)} to ${fmtD(to)} &nbsp;|&nbsp; Generated: ${new Date().toLocaleString('en-IN')}</div>
+  <div class="tiles">
+    <div class="tile" style="background:#DDEEFF;"><div class="tile-val" style="color:#1B4F72;">${fmtN(totalDr)}</div><div class="tile-lbl">Total Debit</div></div>
+    <div class="tile" style="background:#DDFFDD;"><div class="tile-val" style="color:#375623;">${fmtN(totalCr)}</div><div class="tile-lbl">Total Credit</div></div>
+    <div class="tile" style="background:#FFDDDD;"><div class="tile-val" style="color:#C00000;">${fmtN(m.totalPending)}</div><div class="tile-lbl">Pending Unsettled</div></div>
+  </div>
+  <div style="margin-bottom:14px;padding:10px;background:#f9f9f9;border:1px solid #ddd;border-radius:6px;">
+    <strong style="font-size:11px;margin-right:8px;">COLOR LEGEND:</strong>${legendHTML}
+  </div>
+  <table>
+    <thead><tr>${th('Date')}${th('Batch #')}${th('TID / Particulars')}${th('Note / Status')}${th('Debit (Dr)')}${th('Credit (Cr)')}${th('Balance')}</tr></thead>
+    <tbody>${rowsHTML}</tbody>
+  </table>
+  <div style="margin-top:16px;font-size:10px;color:#aaa;text-align:center;">${cname} — E-POS Settlement Report | DSM Pump Star</div>
+  </body></html>`;
+
+  const win = window.open('','_blank');
+  if(win){ win.document.write(html); win.document.close(); }
+  else { toast('Allow popups to view report','err'); }
+}
+
 async function exportExcel(fromDate, toDate){
   // Load SheetJS if needed
   if(typeof XLSX==='undefined'){
