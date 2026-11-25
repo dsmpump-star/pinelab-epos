@@ -203,10 +203,6 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </style>
 </head>
 <body>
-<div id="ver-banner" style="background:#DC2626;color:#fff;text-align:center;padding:6px;font-size:12px;font-weight:700;position:fixed;top:0;left:0;right:0;z-index:99999;">
-  ⚡ v2.0 — If you see this, new version loaded! Tap to dismiss.
-</div>
-<script>document.getElementById('ver-banner').onclick=function(){this.style.display='none';};</script>
 
 <div class="ptr-indicator" id="ptr-indicator">↓ Syncing...</div>
 <div class="topbar">
@@ -368,7 +364,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
   <div class="card">
     <div class="card-title"><span>💳</span> Enter Credit Received</div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6;">Enter the <strong>single lump-sum</strong> credited. App auto-matches oldest batches first.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6;">Select the TID Group this bank credit belongs to — each group settles its own batches independently.</p>
+    <div class="form-row"><label>TID Group</label><select id="recv-group"></select></div>
     <div class="form-row"><label>Credit Date</label><input type="date" id="recv-date"></div>
     <div class="form-row">
       <label>Amount Received (₹)</label>
@@ -559,6 +556,14 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </div>
   </div>
   <div class="card">
+    <div class="card-title"><span>🗂️</span> TID Groups
+      <span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:4px;">Group TIDs by bank/settlement</span>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5;">Each group receives its own credit separately. When entering a received amount, pick the group.</p>
+    <div id="tid-groups-list"></div>
+    <button class="btn btn-sm btn-accent" onclick="addTIDGroup()" style="margin-top:8px;">+ New Group</button>
+  </div>
+  <div class="card">
     <div class="card-title"><span>🏦</span> Bank Holidays
       <span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:4px;">2nd Sat auto-included</span>
     </div>
@@ -666,7 +671,7 @@ async function loadFromSheet(){
       db.companies = remote.companies;
       db.data      = remote.data || {};
       db.companies.forEach(c=>{
-        if(!db.data[c.id]) db.data[c.id]={tids:[],transactions:[],received:[]};
+        if(!db.data[c.id]) db.data[c.id]={tids:[],transactions:[],received:[],tidGroups:[]};
         db.data[c.id].transactions = (db.data[c.id].transactions||[]).map(t=>({...t,date:normalizeDate(t.date),amount:Number(t.amount)}));
         db.data[c.id].received     = (db.data[c.id].received||[]).map(r=>({...r,date:normalizeDate(r.date),amount:Number(r.amount)}));
       });
@@ -721,7 +726,7 @@ function save(){
 }
 
 // Active company data shorthand
-function co(){return db.data[db.activeCompanyId]||{tids:[],transactions:[],received:[]};}
+function co(){const d=db.data[db.activeCompanyId]||{tids:[],transactions:[],received:[],tidGroups:[]};if(!d.tidGroups)d.tidGroups=[];return d;}
 function coInfo(){return db.companies.find(c=>c.id===db.activeCompanyId)||{};}
 
 // ── UTILS ──────────────────────────────────────────────────────────────────
@@ -801,7 +806,7 @@ function switchTab(tab){
   if(tab==='companies'){renderCompanies();return;}
   if(!db.activeCompanyId){switchTab('companies');return;}
   if(tab==='dash'){refreshDashboard();return;}
-  if(tab==='recv')refreshRecv();
+  if(tab==='recv'){populateRecvGroups();refreshRecv();}
   if(tab==='report'){populateRepTid();refreshReport();}
   if(tab==='ledger'){initLedgerTab();}
   if(tab==='analytics'){refreshEPOSAnalytics();}
@@ -906,6 +911,7 @@ function renderTIDs(){
   // Re-trigger TID change to update batch/amount state
   onTIDChange();
   populateRepTid();
+  renderTIDGroups();
 }
 
 function onTIDChange(){
@@ -973,6 +979,90 @@ async function removeTID(t){
   co().tids=co().tids.filter(x=>x!==t); renderTIDs(); toast(`${t} removed`,'err');
   apiPost({action:'deleteTID',companyId:db.activeCompanyId,tid:t}).then(r=>setSyncStatus(r.success?'ok':'err')).catch(()=>setSyncStatus('err')); save();
 }
+// ── TID GROUPS ─────────────────────────────────────────────────────────────
+function renderTIDGroups(){
+  const groups=co().tidGroups||[];
+  const tids=co().tids||[];
+  const el=document.getElementById('tid-groups-list');
+  if(!el)return;
+  if(!groups.length){
+    el.innerHTML='<p style="font-size:12px;color:var(--muted);">No groups yet. Add a group below, then assign TIDs to it.</p>';
+    return;
+  }
+  el.innerHTML=groups.map(g=>`
+    <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--surface);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-weight:700;font-size:14px;">🗂️ ${g.name}</span>
+        <button class="btn btn-sm btn-del" onclick="removeTIDGroup('${g.id}')">✕ Delete Group</button>
+      </div>
+      <div style="margin-bottom:8px;min-height:28px;display:flex;flex-wrap:wrap;gap:4px;">
+        ${(g.tids||[]).map(t=>`<span class="tid-tag">${t}<span class="rm" onclick="removeTIDFromGroup('${g.id}','${t}')">×</span></span>`).join('')||'<span style="font-size:11px;color:var(--muted);">No TIDs in this group</span>'}
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <select id="grp-tid-sel-${g.id}" style="flex:1;font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);">
+          <option value="">— Add TID to group —</option>
+          ${tids.filter(t=>!(g.tids||[]).includes(t)).map(t=>`<option value="${t}">${t}</option>`).join('')}
+        </select>
+        <button class="btn btn-sm btn-accent" onclick="addTIDToGroup('${g.id}')">+ Add</button>
+      </div>
+    </div>`).join('');
+}
+
+function addTIDGroup(){
+  showModal(`<div style="font-size:16px;font-weight:700;margin-bottom:16px;">🗂️ New TID Group</div>
+    <div class="form-row"><label>Group Name</label><input type="text" id="new-grp-name" placeholder="e.g. Pine Labs 53x" style="width:100%;"></div>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:12px;">After creating the group, go to Settings → TID Groups to assign TIDs.</p>
+    <div style="display:flex;gap:9px;">
+      <button class="btn btn-primary" onclick="confirmAddTIDGroup()">✓ Create</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+    </div>`);
+  setTimeout(()=>document.getElementById('new-grp-name')?.focus(),100);
+}
+
+function confirmAddTIDGroup(){
+  const name=document.getElementById('new-grp-name')?.value.trim();
+  if(!name)return toast('Enter a group name','err');
+  const groups=co().tidGroups||[];
+  if(groups.some(g=>g.name.toLowerCase()===name.toLowerCase()))return toast('Group name already exists','err');
+  const g={id:'grp_'+uid(),name,tids:[]};
+  co().tidGroups.push(g);
+  closeModal(); renderTIDGroups(); save(); toast(`Group "${name}" created`);
+  populateRecvGroups();
+}
+
+function removeTIDGroup(gid){
+  const g=(co().tidGroups||[]).find(x=>x.id===gid);
+  if(!g)return;
+  if(!confirm(`Delete group "${g.name}"? TIDs inside will not be deleted, only the grouping.`))return;
+  co().tidGroups=co().tidGroups.filter(x=>x.id!==gid);
+  renderTIDGroups(); save(); toast(`Group deleted`,'err');
+  populateRecvGroups();
+}
+
+function addTIDToGroup(gid){
+  const sel=document.getElementById('grp-tid-sel-'+gid);
+  if(!sel)return;
+  const tid=sel.value;
+  if(!tid)return toast('Select a TID to add','err');
+  const g=(co().tidGroups||[]).find(x=>x.id===gid);
+  if(!g)return;
+  if(!g.tids)g.tids=[];
+  if(g.tids.includes(tid))return toast('TID already in group','err');
+  // Remove from any other group first
+  for(const og of co().tidGroups){ if(og.id!==gid&&og.tids)og.tids=og.tids.filter(t=>t!==tid); }
+  g.tids.push(tid);
+  renderTIDGroups(); save(); toast(`${tid} added to ${g.name}`);
+  populateRecvGroups();
+}
+
+function removeTIDFromGroup(gid,tid){
+  const g=(co().tidGroups||[]).find(x=>x.id===gid);
+  if(!g||!g.tids)return;
+  g.tids=g.tids.filter(t=>t!==tid);
+  renderTIDGroups(); save(); toast(`${tid} removed from group`,'err');
+  populateRecvGroups();
+}
+
 function populateRepTid(){
   const s=document.getElementById('rep-tid'),c=s.value||'ALL';
   s.innerHTML='<option value="ALL">All TIDs</option>'+(co().tids||[]).map(t=>`<option${t===c?' selected':''}>${t}</option>`).join('');
@@ -1135,13 +1225,27 @@ function eHTML(t,showDel){
 // ── RECEIVED ───────────────────────────────────────────────────────────────
 document.getElementById('recv-date').value=todayStr();
 
+function populateRecvGroups(){
+  const sel=document.getElementById('recv-group');
+  if(!sel)return;
+  const groups=co().tidGroups||[];
+  sel.innerHTML=groups.length
+    ?`<option value="">— Select Group —</option>`+groups.map(g=>`<option value="${g.id}">${g.name}${g.tids&&g.tids.length?' ('+g.tids.join(', ')+')':''}</option>`).join('')
+    :'<option value="">No groups configured — add in Settings</option>';
+}
+
+// Legacy compat — keep old name in case anything calls it
+function populateRecvTid(){ populateRecvGroups(); }
+
 async function saveRecv(){
+  const group=document.getElementById('recv-group').value.trim();
   const date=document.getElementById('recv-date').value;
   const amount=parseFloat(document.getElementById('recv-amount').value);
   const note=document.getElementById('recv-note').value.trim();
+  if(!group)return toast('Select a TID Group','err');
   if(!date)return toast('Select a date','err');
   if(!amount||amount<=0)return toast('Enter received amount','err');
-  const entry={id:uid(),date,amount,note,savedAt:new Date().toISOString()};
+  const entry={id:uid(),group,date,amount,note,savedAt:new Date().toISOString()};
   co().received.push(entry);
   document.getElementById('recv-amount').value='';
   document.getElementById('recv-note').value='';
@@ -1157,7 +1261,10 @@ async function delRecv(id){
 }
 function editRecv(id){
   const r=co().received.find(x=>x.id===id);if(!r)return;
+  const groups=co().tidGroups||[];
+  const grpOpts=groups.map(g=>`<option value="${g.id}"${(r.group===g.id||r.tid===g.id)?' selected':''}>${g.name}${g.tids&&g.tids.length?' ('+g.tids.join(', ')+')':''}</option>`).join('');
   showModal(`<div style="font-size:16px;font-weight:700;margin-bottom:16px;">✏️ Edit Received Entry</div>
+    <div class="form-row"><label>TID Group</label><select id="er-group"><option value="">— Select Group —</option>${grpOpts}</select></div>
     <div class="form-row"><label>Credit Date</label><input type="date" id="er-date" value="${r.date}"></div>
     <div class="form-row"><label>Amount Received (₹)</label>
       <div class="big-amt-wrap"><span class="big-rupee">₹</span><input type="number" id="er-amount" class="big-amt" value="${r.amount}" min="0" step="0.01"></div>
@@ -1169,12 +1276,14 @@ function editRecv(id){
     </div>`);
 }
 async function saveEditRecv(id){
+  const group=document.getElementById('er-group').value.trim();
   const date=document.getElementById('er-date').value;
   const amount=parseFloat(document.getElementById('er-amount').value);
   const note=document.getElementById('er-note').value.trim();
+  if(!group)return toast('Select a TID Group','err');
   if(!date||!amount||amount<=0)return toast('Fill all fields','err');
   const i=co().received.findIndex(r=>r.id===id);
-  if(i>=0)co().received[i]={...co().received[i],date,amount,note};
+  if(i>=0)co().received[i]={...co().received[i],group,date,amount,note};
   closeModal();refreshRecv();save();toast('Updated ✓');
   apiPost({action:'updateReceived',data:{...co().received[i>=0?i:0],companyId:db.activeCompanyId},fy:getCurrentFY()}).then(r=>setSyncStatus(r.success?'ok':'err')).catch(()=>setSyncStatus('err'));
 }
@@ -1191,14 +1300,14 @@ function refreshRecv(){
   const rl=document.getElementById('recv-list');
   rl.innerHTML=!sorted.length
     ?'<div class="empty"><div class="ico">💳</div><p>No received entries yet</p></div>'
-    :sorted.map(r=>`<div class="recv-entry">
+    :sorted.map(r=>{const grp=(co().tidGroups||[]).find(g=>g.id===r.group);const grpLabel=grp?grp.name:(r.tid||'');return`<div class="recv-entry">
         <div class="recv-header"><div class="recv-label">${fmtAmt(r.amount)}</div><span class="badge bb">Received</span></div>
-        <div class="recv-sub">📅 ${fmtDate(r.date)}${r.note?' · '+r.note:''}${r.savedAt?' · 🕐 '+fmtTimestamp(r.savedAt):''}</div>
+        <div class="recv-sub">${grpLabel?`<span style="font-family:'Roboto Mono',monospace;font-weight:700;color:var(--blue);margin-right:6px;">🗂️ ${grpLabel}</span>`:''}📅 ${fmtDate(r.date)}${r.note?' · '+r.note:''}${r.savedAt?' · 🕐 '+fmtTimestamp(r.savedAt):''}</div>
         <div class="recv-actions">
           <button class="btn btn-sm btn-edit" onclick="editRecv('${r.id}')">✏️ Edit</button>
           <button class="btn btn-sm btn-del" onclick="delRecv('${r.id}')">✕ Delete</button>
         </div>
-      </div>`).join('');
+      </div>`;}).join('');
 
   // Render match
   const ml=document.getElementById('match-list');
@@ -1902,7 +2011,6 @@ function computeMatch(){
   const byDate=[...allTxns].sort((a,b)=>
     a.date.localeCompare(b.date)||(parseInt(a.batch)-parseInt(b.batch))
   );
-  const recvSorted=[...allRecv].sort((a,b)=>a.date.localeCompare(b.date));
 
   const smap={};
   const settled={};
@@ -1915,26 +2023,78 @@ function computeMatch(){
     if(st==='settled') settled[b.id]=b.amount;
   });
 
-  // Process each credit strictly:
-  // 1. batch.date MUST be < credit.date (never settle same-day batches)
-  // 2. nextBusinessDay(batch.date) must be <= credit.date
-  // 3. Leftover does NOT spill into same-day batches
-  for(const credit of recvSorted){
-    let rem=credit.amount;
-    const eligible=byDate.filter(b=>
-      !ov[b.id] &&
-      b.date < credit.date &&
-      nextBusinessDay(b.date) <= credit.date
-    );
-    for(const b of eligible){
-      if(rem<=0) break;
-      const need=b.amount-settled[b.id];
-      if(need<=0) continue;
-      const pay=Math.min(rem, need);
-      settled[b.id]+=pay;
-      rem-=pay;
+  // ── PER-GROUP SETTLEMENT ─────────────────────────────────────────────────
+  // Each received credit is tagged with a group id.
+  // A credit can only settle batches whose TID belongs to that group.
+  // Within the group, oldest eligible batch is settled first.
+  // Rules: batch.date < credit.date AND nextBusinessDay(batch.date) <= credit.date
+  // Legacy received entries (no group/tid field) fall back to global pool below.
+
+  // Build group → tids lookup from settings
+  const groups=co().tidGroups||[];
+  const groupTidsMap={}; // groupId → Set of tids
+  for(const g of groups){
+    groupTidsMap[g.id]=new Set(g.tids||[]);
+  }
+
+  const grpRecvMap={}; // groupId → sorted received entries
+  const legacyRecv=[];
+  for(const r of allRecv){
+    const gid=r.group||(r.tid?null:null); // r.group is the new field; r.tid is old per-tid (now legacy)
+    if(r.group){
+      if(!grpRecvMap[r.group])grpRecvMap[r.group]=[];
+      grpRecvMap[r.group].push(r);
+    } else {
+      legacyRecv.push(r);
     }
-    // Leftover rem is NOT applied to same-day batches
+  }
+
+  // Sort each group's credits by date
+  for(const gid of Object.keys(grpRecvMap)){
+    grpRecvMap[gid].sort((a,b)=>a.date.localeCompare(b.date));
+  }
+
+  // Process per-group credits — settle only batches in that group's TIDs
+  for(const [gid,credits] of Object.entries(grpRecvMap)){
+    const tidsInGroup=groupTidsMap[gid]||new Set();
+    const grpBatches=byDate.filter(b=>tidsInGroup.has(b.tid));
+    for(const credit of credits){
+      let rem=credit.amount;
+      const eligible=grpBatches.filter(b=>
+        !ov[b.id] &&
+        b.date < credit.date &&
+        nextBusinessDay(b.date) <= credit.date
+      );
+      for(const b of eligible){
+        if(rem<=0) break;
+        const need=b.amount-settled[b.id];
+        if(need<=0) continue;
+        const pay=Math.min(rem, need);
+        settled[b.id]+=pay;
+        rem-=pay;
+      }
+    }
+  }
+
+  // Legacy credits (no group) — settle any remaining unsettled batches globally
+  if(legacyRecv.length>0){
+    const legacySorted=[...legacyRecv].sort((a,b)=>a.date.localeCompare(b.date));
+    for(const credit of legacySorted){
+      let rem=credit.amount;
+      const eligible=byDate.filter(b=>
+        !ov[b.id] &&
+        b.date < credit.date &&
+        nextBusinessDay(b.date) <= credit.date
+      );
+      for(const b of eligible){
+        if(rem<=0) break;
+        const need=b.amount-settled[b.id];
+        if(need<=0) continue;
+        const pay=Math.min(rem, need);
+        settled[b.id]+=pay;
+        rem-=pay;
+      }
+    }
   }
 
   byDate.filter(b=>!ov[b.id]).forEach(b=>{
