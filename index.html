@@ -742,11 +742,18 @@ function saveTIDGroups(){
 function restoreTIDGroups(){
   // Called after loadFromSheet — merges saved tidGroups back into db.data
   try{
-    const all = JSON.parse(localStorage.getItem('epos_tidgroups')||'{}');
-    for(const cid of Object.keys(all)){
-      if(db.data[cid]){
-        db.data[cid].tidGroups = all[cid]||[];
+    let all = JSON.parse(localStorage.getItem('epos_tidgroups')||'{}');
+    // Fallback: also check epos_v5 cache in case epos_tidgroups not yet written
+    if(!Object.keys(all).length){
+      const v5 = JSON.parse(localStorage.getItem('epos_v5')||'{}');
+      if(v5.data) for(const cid of Object.keys(v5.data)){
+        if(v5.data[cid].tidGroups && v5.data[cid].tidGroups.length)
+          all[cid] = v5.data[cid].tidGroups;
       }
+    }
+    for(const cid of Object.keys(all)){
+      if(!db.data[cid]) db.data[cid]={tids:[],transactions:[],received:[],tidGroups:[]};
+      db.data[cid].tidGroups = all[cid]||[];
     }
   } catch(e){}
 }
