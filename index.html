@@ -684,6 +684,9 @@ async function loadFromSheet(){
     db.overrides = remote.overrides || {};
     db.openingBalance = remote.openingBalance || 0;
 
+    // Restore tidGroups from localStorage (not stored in Sheets)
+    restoreTIDGroups();
+
     setSyncStatus('ok');
     updateTopbar(); updateFYBanner(); renderTIDs(); autoFillBatch(); refreshDSM();
     switchTab('dash'); // start on dashboard
@@ -723,6 +726,29 @@ function save(){
   localStorage.setItem(LOCAL_KEY, db.activeCompanyId||'');
   const toCache = { activeCompanyId:db.activeCompanyId, companies:db.companies, data:db.data };
   localStorage.setItem('epos_v5', JSON.stringify(toCache));
+  // Save tidGroups separately so they survive a fresh load from Sheets
+  saveTIDGroups();
+}
+
+function saveTIDGroups(){
+  // Store tidGroups keyed by companyId so multi-company works too
+  const all = JSON.parse(localStorage.getItem('epos_tidgroups')||'{}');
+  if(db.activeCompanyId && db.data[db.activeCompanyId]){
+    all[db.activeCompanyId] = db.data[db.activeCompanyId].tidGroups || [];
+  }
+  localStorage.setItem('epos_tidgroups', JSON.stringify(all));
+}
+
+function restoreTIDGroups(){
+  // Called after loadFromSheet — merges saved tidGroups back into db.data
+  try{
+    const all = JSON.parse(localStorage.getItem('epos_tidgroups')||'{}');
+    for(const cid of Object.keys(all)){
+      if(db.data[cid]){
+        db.data[cid].tidGroups = all[cid]||[];
+      }
+    }
+  } catch(e){}
 }
 
 // Active company data shorthand
